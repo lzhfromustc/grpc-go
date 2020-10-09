@@ -26,6 +26,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"count"
 	"crypto/tls"
 	"errors"
 	"flag"
@@ -677,9 +678,11 @@ func (te *test) listenAndServe(ts testpb.TestServiceServer, listen func(network,
 		}
 		te.srv = wrapHS{hs}
 		tlsListener := tls.NewListener(lis, hs.TLSConfig)
+		count.NewGo()
 		go hs.Serve(tlsListener)
 		return lis
 	}
+	count.NewGo()
 
 	go s.Serve(lis)
 	return lis
@@ -1030,6 +1033,8 @@ func testServerGoAway(t *testing.T, e env) {
 		t.Fatalf("TestService/EmptyCall(_, _) = _, %v, want _, <nil>", err)
 	}
 	ch := make(chan struct{})
+	count.NewCh(ch)
+	count.NewGo()
 	go func() {
 		te.srv.GracefulStop()
 		close(ch)
@@ -1050,6 +1055,7 @@ func testServerGoAway(t *testing.T, e env) {
 		t.Fatalf("TestService/EmptyCall(_, _) = _, %v, want _, %s or %s", err, codes.Unavailable, codes.Internal)
 	}
 	<-ch
+	count.NewOp(ch)
 	awaitNewConnLogOutput()
 }
 
@@ -1085,6 +1091,8 @@ func testServerGoAwayPendingRPC(t *testing.T, e env) {
 		t.Fatalf("%v.EmptyCall(_, _, _) = _, %v, want _, <nil>", tc, err)
 	}
 	ch := make(chan struct{})
+	count.NewCh(ch)
+	count.NewGo()
 	go func() {
 		te.srv.GracefulStop()
 		close(ch)
@@ -1124,6 +1132,7 @@ func testServerGoAwayPendingRPC(t *testing.T, e env) {
 	// The RPC will run until canceled.
 	cancel()
 	<-ch
+	count.NewOp(ch)
 	awaitNewConnLogOutput()
 }
 
@@ -1159,11 +1168,15 @@ func testServerMultipleGoAwayPendingRPC(t *testing.T, e env) {
 		t.Fatalf("%v.EmptyCall(_, _, _) = _, %v, want _, <nil>", tc, err)
 	}
 	ch1 := make(chan struct{})
+	count.NewCh(ch1)
+	count.NewGo()
 	go func() {
 		te.srv.GracefulStop()
 		close(ch1)
 	}()
 	ch2 := make(chan struct{})
+	count.NewCh(ch2)
+	count.NewGo()
 	go func() {
 		te.srv.GracefulStop()
 		close(ch2)
@@ -1209,7 +1222,9 @@ func testServerMultipleGoAwayPendingRPC(t *testing.T, e env) {
 		t.Fatalf("%v.CloseSend() = %v, want <nil>", stream, err)
 	}
 	<-ch1
+	count.NewOp(ch1)
 	<-ch2
+	count.NewOp(ch2)
 	cancel()
 	awaitNewConnLogOutput()
 }
@@ -1240,15 +1255,21 @@ func testConcurrentClientConnCloseAndServerGoAway(t *testing.T, e env) {
 		t.Fatalf("%v.EmptyCall(_, _, _) = _, %v, want _, <nil>", tc, err)
 	}
 	ch := make(chan struct{})
-	// Close ClientConn and Server concurrently.
+	count.
+		// Close ClientConn and Server concurrently.
+		NewCh(ch)
+	count.NewGo()
+
 	go func() {
 		te.srv.GracefulStop()
 		close(ch)
 	}()
+	count.NewGo()
 	go func() {
 		cc.Close()
 	}()
 	<-ch
+	count.NewOp(ch)
 }
 
 func (s) TestConcurrentServerStopAndGoAway(t *testing.T) {
@@ -1282,6 +1303,8 @@ func testConcurrentServerStopAndGoAway(t *testing.T, e env) {
 		t.Fatalf("%v.EmptyCall(_, _, _) = _, %v, want _, <nil>", tc, err)
 	}
 	ch := make(chan struct{})
+	count.NewCh(ch)
+	count.NewGo()
 	go func() {
 		te.srv.GracefulStop()
 		close(ch)
@@ -1329,6 +1352,7 @@ func testConcurrentServerStopAndGoAway(t *testing.T, e env) {
 		t.Fatalf("%v.Recv() = _, %v, want _, <non-nil, non-EOF>", stream, err)
 	}
 	<-ch
+	count.NewOp(ch)
 	awaitNewConnLogOutput()
 }
 
@@ -1354,6 +1378,8 @@ func testClientConnCloseAfterGoAwayWithActiveStream(t *testing.T, e env) {
 		t.Fatalf("%v.FullDuplexCall(_) = _, %v, want _, <nil>", tc, err)
 	}
 	done := make(chan struct{})
+	count.NewCh(done)
+	count.NewGo()
 	go func() {
 		te.srv.GracefulStop()
 		close(done)
@@ -3635,6 +3661,7 @@ func testCancelNoIO(t *testing.T, e env) {
 	// the max streams setting, let them be expired.
 	// TODO(bradfitz): add internal test hook for this (Issue 534)
 	time.Sleep(50 * time.Millisecond)
+	count.NewGo()
 
 	go func() {
 		time.Sleep(50 * time.Millisecond)
@@ -3755,6 +3782,7 @@ func testMetadataStreamingRPC(t *testing.T, e env) {
 	if err != nil {
 		t.Fatalf("%v.FullDuplexCall(_) = _, %v, want <nil>", tc, err)
 	}
+	count.NewGo()
 	go func() {
 		headerMD, err := stream.Header()
 		if e.security == "tls" {
@@ -3977,6 +4005,7 @@ func testServerStreamingConcurrent(t *testing.T, e env) {
 	var wg sync.WaitGroup
 	for i := 0; i < 20; i++ {
 		wg.Add(1)
+		count.NewGo()
 		go func() {
 			defer wg.Done()
 			doStreamingCall()
@@ -4177,6 +4206,7 @@ func testStreamsQuotaRecovery(t *testing.T, e env) {
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
+		count.NewGo()
 		go func() {
 			defer wg.Done()
 			payload, err := newPayload(testpb.PayloadType_COMPRESSABLE, 314)
@@ -4590,8 +4620,10 @@ func (s) TestClientRequestBodyErrorCancel(t *testing.T) {
 func testClientRequestBodyErrorCancel(t *testing.T, e env) {
 	te := newTest(t, e)
 	gotCall := make(chan bool, 1)
+	count.NewCh(gotCall)
 	ts := &funcServer{unaryCall: func(ctx context.Context, in *testpb.SimpleRequest) (*testpb.SimpleResponse, error) {
 		gotCall <- true
+		count.NewOp(gotCall)
 		return new(testpb.SimpleResponse), nil
 	}}
 	te.startServer(ts)
@@ -4613,6 +4645,7 @@ func testClientRequestBodyErrorCancel(t *testing.T, e env) {
 		st.writeHeadersGRPC(3, "/grpc.testing.TestService/UnaryCall")
 		st.writeData(3, true, []byte{0, 0, 0, 0, 0})
 		<-gotCall
+		count.NewOp(gotCall)
 		st.wantAnyFrame()
 	})
 }
@@ -4626,9 +4659,11 @@ func (s) TestClientRequestBodyErrorCancelStreamingInput(t *testing.T) {
 func testClientRequestBodyErrorCancelStreamingInput(t *testing.T, e env) {
 	te := newTest(t, e)
 	recvErr := make(chan error, 1)
+	count.NewCh(recvErr)
 	ts := &funcServer{streamingInputCall: func(stream testpb.TestService_StreamingInputCallServer) error {
 		_, err := stream.Recv()
 		recvErr <- err
+		count.NewOp(recvErr)
 		return nil
 	}}
 	te.startServer(ts)
@@ -4664,6 +4699,7 @@ func (s) TestClientResourceExhaustedCancelFullDuplex(t *testing.T) {
 func testClientResourceExhaustedCancelFullDuplex(t *testing.T, e env) {
 	te := newTest(t, e)
 	recvErr := make(chan error, 1)
+	count.NewCh(recvErr)
 	ts := &funcServer{fullDuplexCall: func(stream testpb.TestService_FullDuplexCallServer) error {
 		defer close(recvErr)
 		_, err := stream.Recv()
@@ -4679,6 +4715,8 @@ func testClientResourceExhaustedCancelFullDuplex(t *testing.T, e env) {
 			Payload: payload,
 		}
 		ce := make(chan error, 1)
+		count.NewCh(ce)
+		count.NewGo()
 		go func() {
 			var err error
 			for {
@@ -4687,6 +4725,7 @@ func testClientResourceExhaustedCancelFullDuplex(t *testing.T, e env) {
 				}
 			}
 			ce <- err
+			count.NewOp(ce)
 		}()
 		select {
 		case err = <-ce:
@@ -4694,6 +4733,7 @@ func testClientResourceExhaustedCancelFullDuplex(t *testing.T, e env) {
 			err = errors.New("10s timeout reached")
 		}
 		recvErr <- err
+		count.NewOp(recvErr)
 		return err
 	}}
 	te.startServer(ts)
@@ -4797,6 +4837,7 @@ func (s) TestServerCredsDispatch(t *testing.T) {
 	}
 	cred := newServerDispatchCred()
 	s := grpc.NewServer(grpc.Creds(cred))
+	count.NewGo()
 	go s.Serve(lis)
 	defer s.Stop()
 
@@ -4848,6 +4889,7 @@ func (s) TestCredsHandshakeAuthority(t *testing.T) {
 	}
 	cred := &authorityCheckCreds{}
 	s := grpc.NewServer()
+	count.NewGo()
 	go s.Serve(lis)
 	defer s.Stop()
 
@@ -4891,6 +4933,7 @@ func (s) TestCredsHandshakeServerNameAuthority(t *testing.T) {
 	}
 	cred := &authorityCheckCreds{}
 	s := grpc.NewServer()
+	count.NewGo()
 	go s.Serve(lis)
 	defer s.Stop()
 
@@ -4994,6 +5037,7 @@ func (s) TestFlowControlLogicalRace(t *testing.T) {
 		itemSize:  itemSize,
 	})
 	defer s.Stop()
+	count.NewGo()
 
 	go s.Serve(lis)
 
@@ -5032,6 +5076,7 @@ func (s) TestFlowControlLogicalRace(t *testing.T) {
 		}
 		cancel()
 		<-ctx.Done()
+		count.NewOp(ctx.Done())
 
 		if j < recvCount {
 			t.Errorf("got %d responses to request %d", j, i)
@@ -5107,6 +5152,7 @@ func awaitLogOutput(maxWait time.Duration, phrase string) {
 	timer := time.NewTimer(maxWait)
 	defer timer.Stop()
 	wakeup := make(chan bool, 1)
+	count.NewCh(wakeup)
 	for {
 		if logOutputHasContents(pb, wakeup) {
 			return
@@ -5242,6 +5288,7 @@ func (ss *stubServer) Start(sopts []grpc.ServerOption, dopts ...grpc.DialOption)
 
 	s := grpc.NewServer(sopts...)
 	testpb.RegisterTestServiceServer(s, ss)
+	count.NewGo()
 	go s.Serve(lis)
 	ss.cleanups = append(ss.cleanups, s.Stop)
 	ss.s = s
@@ -5499,6 +5546,7 @@ func (s) TestTapTimeout(t *testing.T) {
 	ss := &stubServer{
 		emptyCall: func(ctx context.Context, in *testpb.Empty) (*testpb.Empty, error) {
 			<-ctx.Done()
+			count.NewOp(ctx.Done())
 			return nil, status.Errorf(codes.Canceled, ctx.Err().Error())
 		},
 	}
@@ -5888,6 +5936,7 @@ func testServiceConfigSetupTD(t *testing.T, e env) (*test, chan grpc.ServiceConf
 	te := newTest(t, e)
 	// We write before read.
 	ch := make(chan grpc.ServiceConfig, 1)
+	count.NewCh(ch)
 	te.sc = ch
 	te.userAgent = testAppUA
 	te.declareLogNoise(
@@ -5921,6 +5970,7 @@ func testGetMethodConfigTD(t *testing.T, e env) {
 		Methods: m,
 	}
 	ch <- sc
+	count.NewOp(ch)
 
 	cc := te.clientConn()
 	tc := testpb.NewTestServiceClient(cc)
@@ -5936,7 +5986,10 @@ func testGetMethodConfigTD(t *testing.T, e env) {
 		Methods: m,
 	}
 	ch <- sc
-	// Wait for the new service config to propagate.
+	count.
+		// Wait for the new service config to propagate.
+		NewOp(ch)
+
 	for {
 		if _, err := tc.EmptyCall(context.Background(), &testpb.Empty{}); status.Code(err) == codes.DeadlineExceeded {
 			continue
@@ -5971,6 +6024,7 @@ func testServiceConfigWaitForReadyTD(t *testing.T, e env) {
 		Methods: m,
 	}
 	ch <- sc
+	count.NewOp(ch)
 
 	cc := te.clientConn()
 	tc := testpb.NewTestServiceClient(cc)
@@ -5992,8 +6046,11 @@ func testServiceConfigWaitForReadyTD(t *testing.T, e env) {
 		Methods: m,
 	}
 	ch <- sc
+	count.
 
-	// Wait for the new service config to take effect.
+		// Wait for the new service config to take effect.
+		NewOp(ch)
+
 	mc = cc.GetMethodConfig("/grpc.testing.TestService/EmptyCall")
 	for {
 		if !*mc.WaitForReady {
@@ -6033,6 +6090,7 @@ func testServiceConfigTimeoutTD(t *testing.T, e env) {
 		Methods: m,
 	}
 	ch <- sc
+	count.NewOp(ch)
 
 	cc := te.clientConn()
 	tc := testpb.NewTestServiceClient(cc)
@@ -6058,8 +6116,11 @@ func testServiceConfigTimeoutTD(t *testing.T, e env) {
 		Methods: m,
 	}
 	ch <- sc
+	count.
 
-	// Wait for the new service config to take effect.
+		// Wait for the new service config to take effect.
+		NewOp(ch)
+
 	mc = cc.GetMethodConfig("/grpc.testing.TestService/FullDuplexCall")
 	for {
 		if *mc.Timeout != time.Nanosecond {
@@ -6125,6 +6186,7 @@ func testServiceConfigMaxMsgSizeTD(t *testing.T, e env) {
 	defer te1.tearDown()
 
 	ch1 <- sc
+	count.NewOp(ch1)
 	tc := testpb.NewTestServiceClient(te1.clientConn())
 
 	req := &testpb.SimpleRequest{
@@ -6184,6 +6246,7 @@ func testServiceConfigMaxMsgSizeTD(t *testing.T, e env) {
 	te2.startServer(&testServer{security: e.security})
 	defer te2.tearDown()
 	ch2 <- sc
+	count.NewOp(ch2)
 	tc = testpb.NewTestServiceClient(te2.clientConn())
 
 	// Test for unary RPC recv.
@@ -6233,6 +6296,7 @@ func testServiceConfigMaxMsgSizeTD(t *testing.T, e env) {
 	te3.startServer(&testServer{security: e.security})
 	defer te3.tearDown()
 	ch3 <- sc
+	count.NewOp(ch3)
 	tc = testpb.NewTestServiceClient(te3.clientConn())
 
 	// Test for unary RPC recv.
@@ -6499,6 +6563,8 @@ func (s) TestServeExitsWhenListenerClosed(t *testing.T) {
 	}
 
 	done := make(chan struct{})
+	count.NewCh(done)
+	count.NewGo()
 	go func() {
 		s.Serve(lis)
 		close(done)
@@ -6622,6 +6688,7 @@ func testClientDoesntDeadlockWhileWritingErrornousLargeMessages(t *testing.T, e 
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
+		count.NewGo()
 		go func() {
 			defer wg.Done()
 			for j := 0; j < 100; j++ {
@@ -6792,6 +6859,8 @@ func (s) TestDisabledIOBuffers(t *testing.T) {
 	}
 
 	done := make(chan struct{})
+	count.NewCh(done)
+	count.NewGo()
 	go func() {
 		s.Serve(lis)
 		close(done)
@@ -6998,6 +7067,7 @@ func (s) TestNetPipeConn(t *testing.T) {
 		return &testpb.SimpleResponse{}, nil
 	}}
 	testpb.RegisterTestServiceServer(s, ts)
+	count.NewGo()
 	go s.Serve(pl)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -7081,6 +7151,7 @@ func (s) TestGoAwayThenClose(t *testing.T) {
 		},
 	}
 	testpb.RegisterTestServiceServer(s1, ts)
+	count.NewGo()
 	go s1.Serve(lis1)
 
 	conn2Established := grpcsync.NewEvent()
@@ -7091,6 +7162,7 @@ func (s) TestGoAwayThenClose(t *testing.T) {
 	s2 := grpc.NewServer()
 	defer s2.Stop()
 	testpb.RegisterTestServiceServer(s2, ts)
+	count.NewGo()
 	go s2.Serve(lis2)
 
 	r, rcleanup := manual.GenerateAndRegisterManualResolver()
@@ -7117,14 +7189,20 @@ func (s) TestGoAwayThenClose(t *testing.T) {
 		{Addr: lis1.Addr().String()},
 		{Addr: lis2.Addr().String()},
 	}})
+	count.
 
-	// Send GO_AWAY to connection 1.
+		// Send GO_AWAY to connection 1.
+		NewGo()
+
 	go s1.GracefulStop()
 
 	// Wait for connection 2 to be established.
 	<-conn2Established.Done()
+	count.
 
-	// Close connection 1.
+		// Close connection 1.
+		NewOp(conn2Established.Done())
+
 	s1.Stop()
 
 	// Wait for client to close.
@@ -7180,6 +7258,7 @@ func (s) TestRPCWaitsForResolver(t *testing.T) {
 
 	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	count.NewGo()
 	go func() {
 		time.Sleep(time.Second)
 		r.UpdateState(resolver.State{
@@ -7358,7 +7437,10 @@ func (s *httpServer) writeHeader(framer *http2.Framer, sid uint32, headerFields 
 }
 
 func (s *httpServer) start(t *testing.T, lis net.Listener) {
-	// Launch an HTTP server to send back header.
+	count.
+		// Launch an HTTP server to send back header.
+		NewGo()
+
 	go func() {
 		conn, err := lis.Accept()
 		if err != nil {
@@ -7473,6 +7555,7 @@ func (s) TestClientCancellationPropagatesUnary(t *testing.T) {
 		emptyCall: func(ctx context.Context, _ *testpb.Empty) (*testpb.Empty, error) {
 			close(called)
 			<-ctx.Done()
+			count.NewOp(ctx.Done())
 			err := ctx.Err()
 			if err != context.Canceled {
 				t.Errorf("ctx.Err() = %v; want context.Canceled", err)
@@ -7489,6 +7572,7 @@ func (s) TestClientCancellationPropagatesUnary(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
 	wg.Add(1)
+	count.NewGo()
 	go func() {
 		if _, err := ss.client.EmptyCall(ctx, &testpb.Empty{}); status.Code(err) != codes.Canceled {
 			t.Errorf("ss.client.EmptyCall() = _, %v; want _, Code()=codes.Canceled", err)

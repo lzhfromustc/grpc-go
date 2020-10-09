@@ -21,6 +21,7 @@ package main
 
 import (
 	"context"
+	"count"
 	"flag"
 	"fmt"
 	"net"
@@ -119,6 +120,7 @@ func main() {
 	s := grpc.NewServer()
 	defer s.Stop()
 	testpb.RegisterLoadBalancerStatsServiceServer(s, &statsService{})
+	count.NewGo()
 	go s.Serve(lis)
 
 	clients := make([]testpb.TestServiceClient, *numChannels)
@@ -138,6 +140,7 @@ func main() {
 func sendRPCs(clients []testpb.TestServiceClient, ticker *time.Ticker) {
 	var i int
 	for range ticker.C {
+		count.NewGo()
 		go func(i int) {
 			c := clients[i]
 			ctx, cancel := context.WithTimeout(context.Background(), *rpcTimeout)
@@ -159,6 +162,7 @@ func sendRPCs(clients []testpb.TestServiceClient, ticker *time.Ticker) {
 
 			for _, watcher := range savedWatchers {
 				watcher.c <- r
+				count.NewOp(watcher.c)
 			}
 
 			if success && *printResponse {

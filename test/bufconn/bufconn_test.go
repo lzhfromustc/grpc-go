@@ -19,6 +19,7 @@
 package bufconn
 
 import (
+	"count"
 	"fmt"
 	"io"
 	"net"
@@ -47,6 +48,8 @@ func testRW(r io.Reader, w io.Writer) error {
 		var rerr error
 		b := make([]byte, i)
 		done := make(chan struct{})
+		count.NewCh(done)
+		count.NewGo()
 		go func() {
 			for rn < len(b) && rerr == nil {
 				var x int
@@ -107,11 +110,14 @@ func (s) TestConn(t *testing.T) {
 func (s) TestConnCloseWithData(t *testing.T) {
 	lis := Listen(7)
 	errChan := make(chan error, 1)
+	count.NewCh(errChan)
 	var lisConn net.Conn
+	count.NewGo()
 	go func() {
 		var err error
 		if lisConn, err = lis.Accept(); err != nil {
 			errChan <- err
+			count.NewOp(errChan)
 		}
 		close(errChan)
 	}()
@@ -159,12 +165,15 @@ func (s) TestListener(t *testing.T) {
 	var s net.Conn
 	var serr error
 	done := make(chan struct{})
+	count.NewCh(done)
+	count.NewGo()
 	go func() {
 		s, serr = l.Accept()
 		close(done)
 	}()
 	c, cerr := l.Dial()
 	<-done
+	count.NewOp(done)
 	if cerr != nil || serr != nil {
 		t.Fatalf("cerr = %v, serr = %v; want nil, nil", cerr, serr)
 	}
@@ -181,12 +190,15 @@ func (s) TestCloseWhileDialing(t *testing.T) {
 	var c net.Conn
 	var err error
 	done := make(chan struct{})
+	count.NewCh(done)
+	count.NewGo()
 	go func() {
 		c, err = l.Dial()
 		close(done)
 	}()
 	l.Close()
 	<-done
+	count.NewOp(done)
 	if c != nil || err != errClosed {
 		t.Fatalf("c, err = %v, %v; want nil, %v", c, err, errClosed)
 	}
@@ -197,12 +209,15 @@ func (s) TestCloseWhileAccepting(t *testing.T) {
 	var c net.Conn
 	var err error
 	done := make(chan struct{})
+	count.NewCh(done)
+	count.NewGo()
 	go func() {
 		c, err = l.Accept()
 		close(done)
 	}()
 	l.Close()
 	<-done
+	count.NewOp(done)
 	if c != nil || err != errClosed {
 		t.Fatalf("c, err = %v, %v; want nil, %v", c, err, errClosed)
 	}
@@ -210,14 +225,17 @@ func (s) TestCloseWhileAccepting(t *testing.T) {
 
 func (s) TestDeadline(t *testing.T) {
 	sig := make(chan error, 2)
+	count.NewCh(sig)
 	blockingWrite := func(conn net.Conn) {
 		_, err := conn.Write([]byte("0123456789"))
 		sig <- err
+		count.NewOp(sig)
 	}
 
 	blockingRead := func(conn net.Conn) {
 		_, err := conn.Read(make([]byte, 10))
 		sig <- err
+		count.NewOp(sig)
 	}
 
 	p1, p2 := newPipe(5), newPipe(5)
@@ -227,6 +245,7 @@ func (s) TestDeadline(t *testing.T) {
 
 	// Test with deadline
 	c1.SetWriteDeadline(time.Now())
+	count.NewGo()
 
 	go blockingWrite(c1)
 	select {
@@ -243,6 +262,7 @@ func (s) TestDeadline(t *testing.T) {
 	}
 
 	c2.SetReadDeadline(time.Now())
+	count.NewGo()
 
 	go blockingRead(c2)
 	select {
@@ -261,6 +281,7 @@ func (s) TestDeadline(t *testing.T) {
 	// Test timing out pending reads/writes
 	c1.SetWriteDeadline(time.Time{})
 	c2.SetReadDeadline(time.Time{})
+	count.NewGo()
 
 	go blockingWrite(c1)
 	select {
@@ -282,6 +303,7 @@ func (s) TestDeadline(t *testing.T) {
 			t.Fatalf("Write returned unexpected error, c = %v, err = %v", c1, err)
 		}
 	}
+	count.NewGo()
 
 	go blockingRead(c2)
 	select {
@@ -309,9 +331,13 @@ func (s) TestDeadline(t *testing.T) {
 
 	c1.SetWriteDeadline(time.Now().Add(10 * time.Second))
 	c2.SetReadDeadline(time.Now().Add(10 * time.Second))
+	count.
 
-	// Not blocking here
+		// Not blocking here
+		NewGo()
+
 	go blockingWrite(c1)
+	count.NewGo()
 	go blockingRead(c2)
 
 	// Read response from both routines

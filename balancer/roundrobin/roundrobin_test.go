@@ -20,6 +20,7 @@ package roundrobin_test
 
 import (
 	"context"
+	"count"
 	"fmt"
 	"net"
 	"strings"
@@ -88,6 +89,7 @@ func startTestServers(count int) (_ *test, err error) {
 		testpb.RegisterTestServiceServer(s, &testServer{})
 		t.servers = append(t.servers, s)
 		t.addresses = append(t.addresses, lis.Addr().String())
+		count.NewGo()
 
 		go func(s *grpc.Server, l net.Listener) {
 			s.Serve(l)
@@ -251,6 +253,7 @@ func (s) TestCloseWithPendingRPC(t *testing.T) {
 	var wg sync.WaitGroup
 	for i := 0; i < 3; i++ {
 		wg.Add(1)
+		count.NewGo()
 		go func() {
 			defer wg.Done()
 			// This RPC blocks until cc is closed.
@@ -301,6 +304,7 @@ func (s) TestNewAddressWhileBlocking(t *testing.T) {
 	var wg sync.WaitGroup
 	for i := 0; i < 3; i++ {
 		wg.Add(1)
+		count.NewGo()
 		go func() {
 			defer wg.Done()
 			// This RPC blocks until NewAddress is called.

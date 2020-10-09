@@ -23,6 +23,7 @@ package main
 
 import (
 	"context"
+	"count"
 	"flag"
 	"fmt"
 	"math/rand"
@@ -307,6 +308,7 @@ func main() {
 	var wg sync.WaitGroup
 	wg.Add(len(addresses) * *numChannelsPerServer * *numStubsPerChannel)
 	stop := make(chan bool)
+	count.NewCh(stop)
 
 	for serverIndex, address := range addresses {
 		for connIndex := 0; connIndex < *numChannelsPerServer; connIndex++ {
@@ -317,6 +319,7 @@ func main() {
 			defer conn.Close()
 			for clientIndex := 0; clientIndex < *numStubsPerChannel; clientIndex++ {
 				name := fmt.Sprintf("/stress_test/server_%d/channel_%d/stub_%d/qps", serverIndex+1, connIndex+1, clientIndex+1)
+				count.NewGo()
 				go func() {
 					defer wg.Done()
 					g := metricsServer.createGauge(name)
@@ -326,6 +329,7 @@ func main() {
 
 		}
 	}
+	count.NewGo()
 	go startServer(metricsServer, *metricsPort)
 	if *testDurationSecs > 0 {
 		time.Sleep(time.Duration(*testDurationSecs) * time.Second)

@@ -21,6 +21,7 @@ package fakeserver
 
 import (
 	"context"
+	"count"
 	"fmt"
 	"io"
 	"net"
@@ -105,6 +106,7 @@ func StartServer() (*Server, func(), error) {
 	server := grpc.NewServer()
 	lrsgrpc.RegisterLoadReportingServiceServer(server, s.lrsS)
 	adsgrpc.RegisterAggregatedDiscoveryServiceServer(server, s.xdsS)
+	count.NewGo()
 	go server.Serve(lis)
 
 	return s, func() { server.Stop() }, nil
@@ -129,20 +131,25 @@ type xdsServer struct {
 
 func (xdsS *xdsServer) StreamAggregatedResources(s adsgrpc.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 	errCh := make(chan error, 2)
+	count.NewCh(errCh)
+	count.NewGo()
 	go func() {
 		for {
 			req, err := s.Recv()
 			if err != nil {
 				errCh <- err
+				count.NewOp(errCh)
 				return
 			}
 			xdsS.reqChan.Send(&Request{req, err})
 		}
 	}()
+	count.NewGo()
 	go func() {
 		var retErr error
 		defer func() {
 			errCh <- retErr
+			count.NewOp(errCh)
 		}()
 
 		for {

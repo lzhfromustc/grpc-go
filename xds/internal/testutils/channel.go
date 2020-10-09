@@ -19,6 +19,7 @@
 package testutils
 
 import (
+	"count"
 	"errors"
 	"time"
 )
@@ -43,10 +44,13 @@ type Channel struct {
 // Send sends value on the underlying channel.
 func (cwt *Channel) Send(value interface{}) {
 	cwt.ch <- value
+	count.
+
+		// TimedReceive returns the value received on the underlying channel, or
+		// ErrRecvTimeout if timeout amount of time elapsed.
+		NewOp(cwt.ch)
 }
 
-// TimedReceive returns the value received on the underlying channel, or
-// ErrRecvTimeout if timeout amount of time elapsed.
 func (cwt *Channel) TimedReceive(timeout time.Duration) (interface{}, error) {
 	timer := time.NewTimer(timeout)
 	select {

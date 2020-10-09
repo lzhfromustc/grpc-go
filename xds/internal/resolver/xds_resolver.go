@@ -21,6 +21,7 @@ package resolver
 
 import (
 	"context"
+	"count"
 	"fmt"
 
 	"google.golang.org/grpc"
@@ -95,6 +96,7 @@ func (b *xdsResolverBuilder) Build(t resolver.Target, cc resolver.ClientConn, rb
 		cancelWatch()
 		r.logger.Infof("Watch cancel on resource name %v with xds-client %p", r.target.Endpoint, r.client)
 	}
+	count.NewGo()
 
 	go r.run()
 	return r, nil
@@ -204,9 +206,12 @@ func (r *xdsResolver) handleServiceUpdate(su xdsclient.ServiceUpdate, err error)
 		return
 	}
 	r.updateCh <- suWithError{su, err}
+	count.
+
+		// ResolveNow is a no-op at this point.
+		NewOp(r.updateCh)
 }
 
-// ResolveNow is a no-op at this point.
 func (*xdsResolver) ResolveNow(o resolver.ResolveNowOptions) {}
 
 // Close closes the resolver, and also closes the underlying xdsClient.

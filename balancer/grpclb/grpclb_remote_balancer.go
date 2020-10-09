@@ -20,6 +20,7 @@ package grpclb
 
 import (
 	"context"
+	"count"
 	"fmt"
 	"io"
 	"net"
@@ -255,6 +256,7 @@ func (lb *lbBalancer) newRemoteBalancerCCWrapper() {
 	}
 	lb.ccRemoteLB = ccw
 	ccw.wg.Add(1)
+	count.NewGo()
 	go ccw.watchRemoteBalancer()
 }
 
@@ -352,6 +354,7 @@ func (ccw *remoteBalancerCCWrapper) callRemoteBalancer() (backoff bool, _ error)
 	}
 
 	ccw.wg.Add(1)
+	count.NewGo()
 	go func() {
 		defer ccw.wg.Done()
 		if d := convertDuration(initResp.ClientStatsReportInterval); d > 0 {

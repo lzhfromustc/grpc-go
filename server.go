@@ -20,6 +20,7 @@ package grpc
 
 import (
 	"context"
+	"count"
 	"errors"
 	"fmt"
 	"io"
@@ -595,6 +596,7 @@ func (s *Server) Serve(lis net.Listener) error {
 		if s.quit.HasFired() {
 			// Stop or GracefulStop called; block until done and return nil.
 			<-s.done.Done()
+			count.NewOp(s.done.Done())
 		}
 	}()
 
@@ -659,6 +661,7 @@ func (s *Server) Serve(lis net.Listener) error {
 		// Make sure we account for the goroutine so GracefulStop doesn't nil out
 		// s.conns before this conn can be added.
 		s.serveWG.Add(1)
+		count.NewGo()
 		go func() {
 			s.handleRawConn(rawConn)
 			s.serveWG.Done()
@@ -699,6 +702,7 @@ func (s *Server) handleRawConn(rawConn net.Conn) {
 	if !s.addConn(st) {
 		return
 	}
+	count.NewGo()
 	go func() {
 		s.serveStreams(st)
 		s.removeConn(st)
@@ -741,6 +745,7 @@ func (s *Server) serveStreams(st transport.ServerTransport) {
 	var wg sync.WaitGroup
 	st.HandleStreams(func(stream *transport.Stream) {
 		wg.Add(1)
+		count.NewGo()
 		go func() {
 			defer wg.Done()
 			s.handleStream(st, stream, s.traceInfo(st, stream))

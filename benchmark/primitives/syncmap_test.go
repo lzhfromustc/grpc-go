@@ -18,6 +18,7 @@
 package primitives_test
 
 import (
+	"count"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -136,6 +137,7 @@ func benchmarkIncrementUint64Map(b *testing.B, f func() incrementUint64Map) {
 			wg.Add(bb.goroutineCount)
 			b.ResetTimer()
 			for i := 0; i < bb.goroutineCount; i++ {
+				count.NewGo()
 				go func() {
 					for j := 0; j < b.N; j++ {
 						m.increment(cat)

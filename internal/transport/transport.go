@@ -24,6 +24,7 @@ package transport
 import (
 	"bytes"
 	"context"
+	"count"
 	"errors"
 	"fmt"
 	"io"
@@ -323,6 +324,7 @@ func (s *Stream) waitOnHeader() {
 		// headerChan could possibly not be closed yet if closeStream raced
 		// with operateHeaders; wait until it is closed explicitly here.
 		<-s.headerChan
+		count.NewOp(s.headerChan)
 	case <-s.headerChan:
 	}
 }

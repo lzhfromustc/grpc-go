@@ -23,6 +23,7 @@
 package buffer
 
 import (
+	"count"
 	"errors"
 	"math/bits"
 	"runtime"
@@ -248,6 +249,7 @@ func (cb *CircularBuffer) Drain() []interface{} {
 	var wg sync.WaitGroup
 	wg.Add(int(len(qs)))
 	for i := 0; i < len(qs); i++ {
+		count.NewGo()
 		go func(qi int) {
 			qs[qi].drainWait()
 			wg.Done()

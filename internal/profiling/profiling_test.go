@@ -21,6 +21,7 @@
 package profiling
 
 import (
+	"count"
 	"fmt"
 	"strconv"
 	"sync"
@@ -100,6 +101,7 @@ func (s) TestProfilingRace(t *testing.T) {
 	numTimers := int(8 * defaultStatAllocatedTimers) // also tests the slice growth code path
 	wg.Add(numTimers)
 	for i := 0; i < numTimers; i++ {
+		count.NewGo()
 		go func(n int) {
 			defer wg.Done()
 			if n%2 == 0 {
@@ -143,6 +145,7 @@ func BenchmarkProfiling(b *testing.B) {
 			var wg sync.WaitGroup
 			wg.Add(routines)
 			for r := 0; r < routines; r++ {
+				count.NewGo()
 				go func() {
 					for i := 0; i < perRoutine; i++ {
 						stat.NewTimer("bar").Egress()

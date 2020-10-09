@@ -20,6 +20,7 @@ package main
 
 import (
 	"context"
+	"count"
 	"flag"
 	"fmt"
 	"io"
@@ -189,6 +190,7 @@ func (s *workerServer) CoreCount(ctx context.Context, in *testpb.CoreRequest) (*
 func (s *workerServer) QuitWorker(ctx context.Context, in *testpb.Void) (*testpb.Void, error) {
 	grpclog.Infof("quitting worker")
 	s.stop <- true
+	count.NewOp(s.stop)
 	return &testpb.Void{}, nil
 }
 
@@ -204,15 +206,20 @@ func main() {
 
 	s := grpc.NewServer()
 	stop := make(chan bool)
+	count.NewCh(stop)
 	testpb.RegisterWorkerServiceServer(s, &workerServer{
 		stop:       stop,
 		serverPort: *serverPort,
 	})
+	count.NewGo()
 
 	go func() {
 		<-stop
-		// Wait for 1 second before stopping the server to make sure the return value of QuitWorker is sent to client.
-		// TODO revise this once server graceful stop is supported in gRPC.
+		count.
+			// Wait for 1 second before stopping the server to make sure the return value of QuitWorker is sent to client.
+			// TODO revise this once server graceful stop is supported in gRPC.
+			NewOp(stop)
+
 		time.Sleep(time.Second)
 		s.Stop()
 	}()
@@ -220,6 +227,7 @@ func main() {
 	runtime.SetBlockProfileRate(*blockProfRate)
 
 	if *pprofPort >= 0 {
+		count.NewGo()
 		go func() {
 			grpclog.Infoln("Starting pprof server on port " + strconv.Itoa(*pprofPort))
 			grpclog.Infoln(http.ListenAndServe("localhost:"+strconv.Itoa(*pprofPort), nil))

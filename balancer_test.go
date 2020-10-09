@@ -20,6 +20,7 @@ package grpc
 
 import (
 	"context"
+	"count"
 	"fmt"
 	"math"
 	"strconv"
@@ -57,6 +58,7 @@ func (w *testWatcher) Next() (updates []*naming.Update, err error) {
 		}
 	}
 	w.readDone <- 0
+	count.NewOp(w.readDone)
 	return
 }
 
@@ -67,10 +69,13 @@ func (w *testWatcher) Close() {
 // Inject naming resolution updates to the testWatcher.
 func (w *testWatcher) inject(updates []*naming.Update) {
 	w.side <- len(updates)
+	count.NewOp(w.side)
 	for _, u := range updates {
 		w.update <- u
+		count.NewOp(w.update)
 	}
 	<-w.readDone
+	count.NewOp(w.readDone)
 }
 
 type testNameResolver struct {
@@ -85,12 +90,17 @@ func (r *testNameResolver) Resolve(target string) (naming.Watcher, error) {
 		readDone: make(chan int),
 	}
 	r.w.side <- 1
+	count.NewOp(r.w.side)
 	r.w.update <- &naming.Update{
 		Op:   naming.Add,
 		Addr: r.addr,
 	}
+	count.NewOp(r.w.update)
+	count.NewGo()
+
 	go func() {
 		<-r.w.readDone
+		count.NewOp(r.w.readDone)
 	}()
 	return r.w, nil
 }
@@ -100,6 +110,7 @@ func startServers(t *testing.T, numServers int, maxStreams uint32) ([]*server, *
 	for i := 0; i < numServers; i++ {
 		s := newTestServer()
 		servers = append(servers, s)
+		count.NewGo()
 		go s.start(t, 0, maxStreams)
 		s.wait(t, 2*time.Second)
 	}
@@ -257,6 +268,7 @@ func (s) TestCloseWithPendingRPC(t *testing.T) {
 	// Issue 2 RPCs which should be completed with error status once cc is closed.
 	var wg sync.WaitGroup
 	wg.Add(2)
+	count.NewGo()
 	go func() {
 		defer wg.Done()
 		var reply string
@@ -264,6 +276,7 @@ func (s) TestCloseWithPendingRPC(t *testing.T) {
 			t.Errorf("grpc.Invoke(_, _, _, _, _) = %v, want not nil", err)
 		}
 	}()
+	count.NewGo()
 	go func() {
 		defer wg.Done()
 		var reply string
@@ -303,6 +316,7 @@ func (s) TestGetOnWaitChannel(t *testing.T) {
 	}
 	var wg sync.WaitGroup
 	wg.Add(1)
+	count.NewGo()
 	go func() {
 		defer wg.Done()
 		var reply string
@@ -351,6 +365,7 @@ func (s) TestOneServerDown(t *testing.T) {
 	numRPC := 100
 	sleepDuration := 10 * time.Millisecond
 	wg.Add(1)
+	count.NewGo()
 	go func() {
 		time.Sleep(sleepDuration)
 		// After sleepDuration, kill server[0].
@@ -361,6 +376,7 @@ func (s) TestOneServerDown(t *testing.T) {
 	// All non-failfast RPCs should not block because there's at least one connection available.
 	for i := 0; i < numRPC; i++ {
 		wg.Add(1)
+		count.NewGo()
 		go func() {
 			time.Sleep(sleepDuration)
 			// After sleepDuration, invoke RPC.
@@ -403,6 +419,7 @@ func (s) TestOneAddressRemoval(t *testing.T) {
 	numRPC := 100
 	sleepDuration := 10 * time.Millisecond
 	wg.Add(1)
+	count.NewGo()
 	go func() {
 		time.Sleep(sleepDuration)
 		// After sleepDuration, delete server[0].
@@ -418,6 +435,7 @@ func (s) TestOneAddressRemoval(t *testing.T) {
 	// All non-failfast RPCs should not fail because there's at least one connection available.
 	for i := 0; i < numRPC; i++ {
 		wg.Add(1)
+		count.NewGo()
 		go func() {
 			var reply string
 			time.Sleep(sleepDuration)
@@ -511,6 +529,7 @@ func (s) TestPickFirstCloseWithPendingRPC(t *testing.T) {
 	// Issue 2 RPCs which should be completed with error status once cc is closed.
 	var wg sync.WaitGroup
 	wg.Add(2)
+	count.NewGo()
 	go func() {
 		defer wg.Done()
 		var reply string
@@ -518,6 +537,7 @@ func (s) TestPickFirstCloseWithPendingRPC(t *testing.T) {
 			t.Errorf("grpc.Invoke(_, _, _, _, _) = %v, want not nil", err)
 		}
 	}()
+	count.NewGo()
 	go func() {
 		defer wg.Done()
 		var reply string
@@ -701,6 +721,7 @@ func (s) TestPickFirstOrderOneServerDown(t *testing.T) {
 	// up the server[0] back, the incoming RPCs served in server[1]
 	p, _ := strconv.Atoi(servers[0].port)
 	servers[0] = newTestServer()
+	count.NewGo()
 	go servers[0].start(t, p, math.MaxUint32)
 	defer servers[0].stop()
 	servers[0].wait(t, 2*time.Second)
@@ -759,6 +780,7 @@ func (s) TestPickFirstOneAddressRemoval(t *testing.T) {
 	numRPC := 100
 	sleepDuration := 10 * time.Millisecond
 	wg.Add(1)
+	count.NewGo()
 	go func() {
 		time.Sleep(sleepDuration)
 		// After sleepDuration, delete server[0].
@@ -774,6 +796,7 @@ func (s) TestPickFirstOneAddressRemoval(t *testing.T) {
 	// All non-failfast RPCs should not fail because there's at least one connection available.
 	for i := 0; i < numRPC; i++ {
 		wg.Add(1)
+		count.NewGo()
 		go func() {
 			var reply string
 			time.Sleep(sleepDuration)

@@ -20,6 +20,7 @@ package testutils
 
 import (
 	"context"
+	"count"
 	"fmt"
 	"sync"
 	"testing"
@@ -132,15 +133,19 @@ func (tcc *TestClientConn) UpdateState(bs balancer.State) {
 	default:
 	}
 	tcc.NewStateCh <- bs.ConnectivityState
+	count.NewOp(tcc.NewStateCh)
 
 	select {
 	case <-tcc.NewPickerCh:
 	default:
 	}
 	tcc.NewPickerCh <- bs.Picker
+	count.
+
+		// ResolveNow panics.
+		NewOp(tcc.NewPickerCh)
 }
 
-// ResolveNow panics.
 func (tcc *TestClientConn) ResolveNow(resolver.ResolveNowOptions) {
 	panic("not implemented")
 }

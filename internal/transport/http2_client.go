@@ -20,6 +20,7 @@ package transport
 
 import (
 	"context"
+	"count"
 	"fmt"
 	"io"
 	"math"
@@ -292,11 +293,15 @@ func newHTTP2Client(connectCtx, ctx context.Context, addr TargetInfo, opts Conne
 	}
 	if t.keepaliveEnabled {
 		t.kpDormancyCond = sync.NewCond(&t.mu)
+		count.NewGo()
 		go t.keepalive()
 	}
-	// Start the reader goroutine for incoming message. Each transport has
-	// a dedicated goroutine which reads HTTP2 frame from network. Then it
-	// dispatches the frame to the corresponding stream entity.
+	count.
+		// Start the reader goroutine for incoming message. Each transport has
+		// a dedicated goroutine which reads HTTP2 frame from network. Then it
+		// dispatches the frame to the corresponding stream entity.
+		NewGo()
+
 	go t.reader()
 
 	// Send connection preface to server.
@@ -341,6 +346,7 @@ func newHTTP2Client(connectCtx, ctx context.Context, addr TargetInfo, opts Conne
 	if err := t.framer.writer.Flush(); err != nil {
 		return nil, err
 	}
+	count.NewGo()
 	go func() {
 		t.loopy = newLoopyWriter(clientSide, t.framer, t.controlBuf, t.bdpEst)
 		err := t.loopy.run()
@@ -721,6 +727,7 @@ func (t *http2Client) closeStream(s *Stream, err error, rst bool, rstCode http2.
 		// If it was already done, return.  If multiple closeStream calls
 		// happen simultaneously, wait for the first to finish.
 		<-s.done
+		count.NewOp(s.done)
 		return
 	}
 	// status and trailers can be updated here without any synchronization because the stream goroutine will
@@ -1049,6 +1056,7 @@ func (t *http2Client) handleSettings(f *http2.SettingsFrame, isFirst bool) {
 			if delta > 0 && t.waitingStreams > 0 {
 				close(t.streamsQuotaAvailable) // wake all of them up.
 				t.streamsQuotaAvailable = make(chan struct{}, 1)
+				count.NewCh(t.streamsQuotaAvailable)
 			}
 		}
 		updateFuncs = append(updateFuncs, updateStreamQuota)
@@ -1396,6 +1404,7 @@ func (t *http2Client) keepalive() {
 		case <-t.ctx.Done():
 			if !timer.Stop() {
 				<-timer.C
+				count.NewOp(timer.C)
 			}
 			return
 		}
@@ -1448,6 +1457,7 @@ func (t *http2Client) IncrMsgRecv() {
 
 func (t *http2Client) getOutFlowWindow() int64 {
 	resp := make(chan uint32, 1)
+	count.NewCh(resp)
 	timer := time.NewTimer(time.Second)
 	defer timer.Stop()
 	t.controlBuf.put(&outFlowControlSizeRequest{resp})

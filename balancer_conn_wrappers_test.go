@@ -19,6 +19,7 @@
 package grpc
 
 import (
+	"count"
 	"fmt"
 	"net"
 	"testing"
@@ -83,9 +84,12 @@ func (s) TestBalancerErrorResolverPolling(t *testing.T) {
 			// No addresses so the balancer will fail.
 			r.CC.UpdateState(resolver.State{})
 		}, func(r *manual.Resolver) {
-			// UpdateState will block if ResolveNow is being called (which blocks on
-			// rn), so call it in a goroutine.  Include some address so the balancer
-			// will be happy.
+			count.
+				// UpdateState will block if ResolveNow is being called (which blocks on
+				// rn), so call it in a goroutine.  Include some address so the balancer
+				// will be happy.
+				NewGo()
+
 			go r.CC.UpdateState(resolver.State{Addresses: []resolver.Address{{Addr: "x"}}})
 		},
 		WithDefaultServiceConfig(fmt.Sprintf(`{ "loadBalancingConfig": [{"%v": {}}] }`, balName)))
@@ -105,6 +109,7 @@ func (s) TestRoundRobinZeroAddressesResolverPolling(t *testing.T) {
 	defer lis.Close()
 	s := NewServer()
 	defer s.Stop()
+	count.NewGo()
 	go s.Serve(lis)
 
 	testResolverErrorPolling(t,
@@ -112,9 +117,12 @@ func (s) TestRoundRobinZeroAddressesResolverPolling(t *testing.T) {
 			// No addresses so the balancer will fail.
 			r.CC.UpdateState(resolver.State{})
 		}, func(r *manual.Resolver) {
-			// UpdateState will block if ResolveNow is being called (which
-			// blocks on rn), so call it in a goroutine.  Include a valid
-			// address so the balancer will be happy.
+			count.
+				// UpdateState will block if ResolveNow is being called (which
+				// blocks on rn), so call it in a goroutine.  Include a valid
+				// address so the balancer will be happy.
+				NewGo()
+
 			go r.CC.UpdateState(resolver.State{Addresses: []resolver.Address{{Addr: lis.Addr().String()}}})
 		},
 		WithDefaultServiceConfig(fmt.Sprintf(`{ "loadBalancingConfig": [{"%v": {}}] }`, roundrobin.Name)))

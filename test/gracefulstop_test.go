@@ -20,6 +20,7 @@ package test
 
 import (
 	"context"
+	"count"
 	"fmt"
 	"net"
 	"sync"
@@ -45,7 +46,9 @@ func (d *delayListener) Accept() (net.Conn, error) {
 	case <-d.acceptCalled:
 		// On the second call, block until closed, then return an error.
 		<-d.closeCalled
+		count.NewOp(d.closeCalled)
 		<-d.allowCloseCh
+		count.NewOp(d.allowCloseCh)
 		return nil, fmt.Errorf("listener is closed")
 	default:
 		close(d.acceptCalled)
@@ -66,8 +69,10 @@ func (d *delayListener) allowClose() {
 }
 func (d *delayListener) Close() error {
 	close(d.closeCalled)
+	count.NewGo()
 	go func() {
 		<-d.allowCloseCh
+		count.NewOp(d.allowCloseCh)
 		d.Listener.Close()
 	}()
 	return nil
@@ -122,6 +127,7 @@ func (s) TestGracefulStop(t *testing.T) {
 	// 1. Start Server
 	wg := sync.WaitGroup{}
 	wg.Add(1)
+	count.NewGo()
 	go func() {
 		s.Serve(dlis)
 		wg.Done()
@@ -130,7 +136,9 @@ func (s) TestGracefulStop(t *testing.T) {
 	// 2. GracefulStop() Server after listener's Accept is called, but don't
 	//    allow Accept() to exit when Close() is called on it.
 	<-dlis.acceptCalled
+	count.NewOp(dlis.acceptCalled)
 	wg.Add(1)
+	count.NewGo()
 	go func() {
 		s.GracefulStop()
 		wg.Done()
@@ -139,7 +147,9 @@ func (s) TestGracefulStop(t *testing.T) {
 	// 3. Create a new connection to the server after listener.Close() is called.
 	//    Server should close this connection immediately, before handshaking.
 
-	<-dlis.closeCalled // Block until GracefulStop calls dlis.Close()
+	<-dlis.closeCalled
+	count. // Block until GracefulStop calls dlis.Close()
+		NewOp(dlis.closeCalled)
 
 	// Now dial.  The listener's Accept method will return a valid connection,
 	// even though GracefulStop has closed the listener.

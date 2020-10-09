@@ -19,6 +19,7 @@
 package grpc
 
 import (
+	"count"
 	"sync"
 
 	"google.golang.org/grpc/balancer"
@@ -49,6 +50,7 @@ func (bwb *balancerWrapperBuilder) Build(cc balancer.ClientConn, opts balancer.B
 		state:      connectivity.Idle,
 	}
 	cc.UpdateState(balancer.State{ConnectivityState: connectivity.Idle, Picker: bw})
+	count.NewGo()
 	go bw.lbWatcher()
 	return bw
 }
@@ -88,6 +90,7 @@ type balancerWrapper struct {
 // connections accordingly.
 func (bw *balancerWrapper) lbWatcher() {
 	<-bw.startCh
+	count.NewOp(bw.startCh)
 	notifyCh := bw.balancer.Notify()
 	if notifyCh == nil {
 		// There's no resolver in the balancer. Connect directly.

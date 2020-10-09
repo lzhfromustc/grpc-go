@@ -22,6 +22,7 @@ package fakeserver
 
 import (
 	"context"
+	"count"
 	"fmt"
 	"net"
 	"time"
@@ -67,6 +68,7 @@ func Start() (*Server, func(), error) {
 
 	server := grpc.NewServer()
 	rlsgrpc.RegisterRouteLookupServiceServer(server, s)
+	count.NewGo()
 	go server.Serve(lis)
 
 	return s, func() { server.Stop() }, nil
@@ -75,6 +77,7 @@ func Start() (*Server, func(), error) {
 // RouteLookup implements the RouteLookupService.
 func (s *Server) RouteLookup(ctx context.Context, req *rlspb.RouteLookupRequest) (*rlspb.RouteLookupResponse, error) {
 	s.RequestChan <- req
+	count.NewOp(s.RequestChan)
 	resp := <-s.ResponseChan
 	return resp.Resp, resp.Err
 }

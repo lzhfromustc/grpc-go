@@ -20,6 +20,7 @@ package test
 
 import (
 	"context"
+	"count"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -404,6 +405,7 @@ func (s) TestCZServerListenSocketDeletion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to listen: %v", err)
 	}
+	count.NewGo()
 	go s.Serve(lis)
 	if err := verifyResultWithDelay(func() (bool, error) {
 		ss, _ := channelz.GetServers(0, 0)
@@ -969,6 +971,7 @@ func (s) TestCZClientAndServerSocketMetricsStreamsCountFlowControlRSTStream(t *t
 	ts := &funcServer{fullDuplexCall: func(stream testpb.TestService_FullDuplexCallServer) error {
 		stream.Send(&testpb.StreamingOutputCallResponse{})
 		<-stream.Context().Done()
+		count.NewOp(stream.Context().Done())
 		return status.Errorf(codes.DeadlineExceeded, "deadline exceeded or cancelled")
 	}}
 	te.startServer(ts)
@@ -984,6 +987,7 @@ func (s) TestCZClientAndServerSocketMetricsStreamsCountFlowControlRSTStream(t *t
 	if _, err := stream.Recv(); err != nil {
 		t.Fatalf("stream.Recv() = %v, want nil", err)
 	}
+	count.NewGo()
 	go func() {
 		payload := make([]byte, 16384)
 		for i := 0; i < 6; i++ {

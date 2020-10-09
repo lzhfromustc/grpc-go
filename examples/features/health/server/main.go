@@ -20,6 +20,7 @@ package main
 
 import (
 	"context"
+	"count"
 	"flag"
 	"fmt"
 	"log"
@@ -63,6 +64,7 @@ func main() {
 	healthcheck := health.NewServer()
 	healthpb.RegisterHealthServer(s, healthcheck)
 	pb.RegisterEchoServer(s, &echoServer{})
+	count.NewGo()
 
 	go func() {
 		// asynchronously inspect dependencies and toggle serving status as needed

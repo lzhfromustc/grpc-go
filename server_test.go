@@ -20,6 +20,7 @@ package grpc
 
 import (
 	"context"
+	"count"
 	"net"
 	"reflect"
 	"strings"
@@ -62,6 +63,7 @@ func (s) TestGracefulStop(t *testing.T) {
 	}
 
 	server := NewServer()
+	count.NewGo()
 	go func() {
 		// make sure Serve() is called
 		time.Sleep(time.Millisecond * 500)

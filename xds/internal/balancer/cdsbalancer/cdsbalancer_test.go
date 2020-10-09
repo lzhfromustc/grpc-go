@@ -17,6 +17,7 @@
 package cdsbalancer
 
 import (
+	"count"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -103,23 +104,29 @@ func newTestEDSBalancer() *testEDSBalancer {
 
 func (tb *testEDSBalancer) UpdateClientConnState(ccs balancer.ClientConnState) error {
 	tb.ccsCh <- ccs
+	count.NewOp(tb.ccsCh)
 	return nil
 }
 
 func (tb *testEDSBalancer) ResolverError(err error) {
 	tb.resolverErrCh <- err
+	count.NewOp(tb.resolverErrCh)
 }
 
 func (tb *testEDSBalancer) UpdateSubConnState(sc balancer.SubConn, state balancer.SubConnState) {
 	tb.scStateCh <- subConnWithState{sc: sc, state: state}
+	count.NewOp(tb.scStateCh)
 }
 
 func (tb *testEDSBalancer) Close() {
 	tb.closeCh <- struct{}{}
+	count.
+
+		// waitForClientConnUpdate verifies if the testEDSBalancer receives the
+		// provided ClientConnState within a reasonable amount of time.
+		NewOp(tb.closeCh)
 }
 
-// waitForClientConnUpdate verifies if the testEDSBalancer receives the
-// provided ClientConnState within a reasonable amount of time.
 func (tb *testEDSBalancer) waitForClientConnUpdate(wantCCS balancer.ClientConnState) error {
 	timer := time.NewTimer(defaultTestTimeout)
 	select {

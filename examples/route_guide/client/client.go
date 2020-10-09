@@ -24,6 +24,7 @@ package main
 
 import (
 	"context"
+	"count"
 	"flag"
 	"io"
 	"log"
@@ -121,6 +122,8 @@ func runRouteChat(client pb.RouteGuideClient) {
 		log.Fatalf("%v.RouteChat(_) = _, %v", client, err)
 	}
 	waitc := make(chan struct{})
+	count.NewCh(waitc)
+	count.NewGo()
 	go func() {
 		for {
 			in, err := stream.Recv()
@@ -142,6 +145,7 @@ func runRouteChat(client pb.RouteGuideClient) {
 	}
 	stream.CloseSend()
 	<-waitc
+	count.NewOp(waitc)
 }
 
 func randomPoint(r *rand.Rand) *pb.Point {

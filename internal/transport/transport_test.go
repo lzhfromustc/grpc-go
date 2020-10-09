@@ -21,6 +21,7 @@ package transport
 import (
 	"bytes"
 	"context"
+	"count"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -99,6 +100,7 @@ func (h *testStreamHandler) handleStreamAndNotify(s *Stream) {
 	if h.notify == nil {
 		return
 	}
+	count.NewGo()
 	go func() {
 		select {
 		case <-h.notify:
@@ -232,7 +234,9 @@ func (h *testStreamHandler) handleStreamDelayRead(t *testing.T, s *Stream) {
 		return total
 	}
 	done := make(chan struct{})
+	count.NewCh(done)
 	defer close(done)
+	count.NewGo()
 	go func() {
 		for {
 			select {
@@ -304,16 +308,19 @@ func (s *server) start(t *testing.T, port int, serverConfig *ServerConfig, ht hT
 	}
 	if err != nil {
 		s.startedErr <- fmt.Errorf("failed to listen: %v", err)
+		count.NewOp(s.startedErr)
 		return
 	}
 	_, p, err := net.SplitHostPort(s.lis.Addr().String())
 	if err != nil {
 		s.startedErr <- fmt.Errorf("failed to parse listener address: %v", err)
+		count.NewOp(s.startedErr)
 		return
 	}
 	s.port = p
 	s.conns = make(map[ServerTransport]bool)
 	s.startedErr <- nil
+	count.NewOp(s.startedErr)
 	for {
 		conn, err := s.lis.Accept()
 		if err != nil {
@@ -335,52 +342,68 @@ func (s *server) start(t *testing.T, port int, serverConfig *ServerConfig, ht hT
 		s.mu.Unlock()
 		switch ht {
 		case notifyCall:
+			count.NewGo()
 			go transport.HandleStreams(h.handleStreamAndNotify,
 				func(ctx context.Context, _ string) context.Context {
 					return ctx
 				})
 		case suspended:
+			count.NewGo()
 			go transport.HandleStreams(func(*Stream) {}, // Do nothing to handle the stream.
 				func(ctx context.Context, method string) context.Context {
 					return ctx
 				})
 		case misbehaved:
+			count.NewGo()
 			go transport.HandleStreams(func(s *Stream) {
+				count.NewGo()
 				go h.handleStreamMisbehave(t, s)
 			}, func(ctx context.Context, method string) context.Context {
 				return ctx
 			})
 		case encodingRequiredStatus:
+			count.NewGo()
 			go transport.HandleStreams(func(s *Stream) {
+				count.NewGo()
 				go h.handleStreamEncodingRequiredStatus(t, s)
 			}, func(ctx context.Context, method string) context.Context {
 				return ctx
 			})
 		case invalidHeaderField:
+			count.NewGo()
 			go transport.HandleStreams(func(s *Stream) {
+				count.NewGo()
 				go h.handleStreamInvalidHeaderField(t, s)
 			}, func(ctx context.Context, method string) context.Context {
 				return ctx
 			})
 		case delayRead:
 			h.notify = make(chan struct{})
+			count.NewCh(h.notify)
 			h.getNotified = make(chan struct{})
+			count.NewCh(h.getNotified)
 			s.mu.Lock()
 			close(s.ready)
 			s.mu.Unlock()
+			count.NewGo()
 			go transport.HandleStreams(func(s *Stream) {
+				count.NewGo()
 				go h.handleStreamDelayRead(t, s)
 			}, func(ctx context.Context, method string) context.Context {
 				return ctx
 			})
 		case pingpong:
+			count.NewGo()
 			go transport.HandleStreams(func(s *Stream) {
+				count.NewGo()
 				go h.handleStreamPingPong(t, s)
 			}, func(ctx context.Context, method string) context.Context {
 				return ctx
 			})
 		default:
+			count.NewGo()
 			go transport.HandleStreams(func(s *Stream) {
+				count.NewGo()
 				go h.handleStream(t, s)
 			}, func(ctx context.Context, method string) context.Context {
 				return ctx
@@ -419,6 +442,7 @@ func (s *server) addr() string {
 
 func setUpServerOnly(t *testing.T, port int, serverConfig *ServerConfig, ht hType) *server {
 	server := &server{startedErr: make(chan error, 1), ready: make(chan struct{})}
+	count.NewGo()
 	go server.start(t, port, serverConfig, ht)
 	server.wait(t, 2*time.Second)
 	return server
@@ -448,7 +472,10 @@ func setUpWithNoPingServer(t *testing.T, copts ConnectOptions, connCh chan net.C
 	if err != nil {
 		t.Fatalf("Failed to listen: %v", err)
 	}
-	// Launch a non responsive server.
+	count.
+		// Launch a non responsive server.
+		NewGo()
+
 	go func() {
 		defer lis.Close()
 		conn, err := lis.Accept()
@@ -458,6 +485,7 @@ func setUpWithNoPingServer(t *testing.T, copts ConnectOptions, connCh chan net.C
 			return
 		}
 		connCh <- conn
+		count.NewOp(connCh)
 	}()
 	connectCtx, cancel := context.WithDeadline(context.Background(), time.Now().Add(2*time.Second))
 	tr, err := NewClientTransport(connectCtx, context.Background(), TargetInfo{Addr: lis.Addr().String()}, copts, func() {}, func(GoAwayReason) {}, func() {})
@@ -488,7 +516,9 @@ func (s) TestInflightStreamClosing(t *testing.T) {
 	}
 
 	donec := make(chan struct{})
+	count.NewCh(donec)
 	serr := status.Error(codes.Internal, "client connection is closing")
+	count.NewGo()
 	go func() {
 		defer close(donec)
 		if _, err := stream.Read(make([]byte, defaultWindowSize)); err != serr {
@@ -505,6 +535,7 @@ func (s) TestInflightStreamClosing(t *testing.T) {
 	case <-donec:
 		if !timeout.Stop() {
 			<-timeout.C
+			count.NewOp(timeout.C)
 		}
 	case <-timeout.C:
 		t.Fatalf("Test timed out, expected a status error.")
@@ -552,9 +583,11 @@ func (s) TestClientSendAndReceive(t *testing.T) {
 func (s) TestClientErrorNotify(t *testing.T) {
 	server, ct, cancel := setUp(t, 0, math.MaxUint32, normal)
 	defer cancel()
+	count.NewGo()
 	go server.stop()
 	// ct.reader should detect the error and activate ct.Error().
 	<-ct.Error()
+	count.NewOp(ct.Error())
 	ct.Close()
 }
 
@@ -584,16 +617,20 @@ func performOneRPC(ct ClientTransport) {
 func (s) TestClientMix(t *testing.T) {
 	s, ct, cancel := setUp(t, 0, math.MaxUint32, normal)
 	defer cancel()
+	count.NewGo()
 	go func(s *server) {
 		time.Sleep(5 * time.Second)
 		s.stop()
 	}(s)
+	count.NewGo()
 	go func(ct ClientTransport) {
 		<-ct.Error()
+		count.NewOp(ct.Error())
 		ct.Close()
 	}(ct)
 	for i := 0; i < 1000; i++ {
 		time.Sleep(10 * time.Millisecond)
+		count.NewGo()
 		go performOneRPC(ct)
 	}
 }
@@ -608,6 +645,7 @@ func (s) TestLargeMessage(t *testing.T) {
 	var wg sync.WaitGroup
 	for i := 0; i < 2; i++ {
 		wg.Add(1)
+		count.NewGo()
 		go func() {
 			defer wg.Done()
 			s, err := ct.NewStream(context.Background(), callHdr)
@@ -684,7 +722,9 @@ func (s) TestLargeMessageWithDelayRead(t *testing.T) {
 		return total
 	}
 	done := make(chan struct{})
+	count.NewCh(done)
 	defer close(done)
+	count.NewGo()
 	go func() {
 		for {
 			select {
@@ -768,6 +808,7 @@ func (s) TestGracefulClose(t *testing.T) {
 	// Expect the failure for all the follow-up streams because ct has been closed gracefully.
 	for i := 0; i < 200; i++ {
 		wg.Add(1)
+		count.NewGo()
 		go func() {
 			defer wg.Done()
 			str, err := ct.NewStream(context.Background(), &CallHdr{})
@@ -805,10 +846,14 @@ func (s) TestLargeMessageSuspension(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open stream: %v", err)
 	}
-	// Launch a goroutine simillar to the stream monitoring goroutine in
-	// stream.go to keep track of context timeout and call CloseStream.
+	count.
+		// Launch a goroutine simillar to the stream monitoring goroutine in
+		// stream.go to keep track of context timeout and call CloseStream.
+		NewGo()
+
 	go func() {
 		<-ctx.Done()
+		count.NewOp(ctx.Done())
 		ct.CloseStream(s, ContextErr(ctx.Err()))
 	}()
 	// Write should not be done successfully due to flow control.
@@ -869,7 +914,11 @@ func (s) TestMaxStreams(t *testing.T) {
 		break
 	}
 	done := make(chan struct{})
-	// Try and create a new stream.
+	count.
+		// Try and create a new stream.
+		NewCh(done)
+	count.NewGo()
+
 	go func() {
 		defer close(done)
 		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second*10))
@@ -890,8 +939,10 @@ func (s) TestMaxStreams(t *testing.T) {
 	// Close the first stream created so that the new stream can finally be created.
 	ct.CloseStream(s, nil)
 	<-done
+	count.NewOp(done)
 	ct.Close()
 	<-ct.writerDone
+	count.NewOp(ct.writerDone)
 	if ct.maxConcurrentStreams != 1 {
 		t.Fatalf("ct.maxConcurrentStreams: %d, want 1", ct.maxConcurrentStreams)
 	}
@@ -985,6 +1036,7 @@ func (s) TestClientConnDecoupledFromApplicationRead(t *testing.T) {
 		st = k.(*http2Server)
 	}
 	notifyChan := make(chan struct{})
+	count.NewCh(notifyChan)
 	server.h.notify = notifyChan
 	server.mu.Unlock()
 	cstream1, err := client.NewStream(context.Background(), &CallHdr{})
@@ -993,6 +1045,7 @@ func (s) TestClientConnDecoupledFromApplicationRead(t *testing.T) {
 	}
 
 	<-notifyChan
+	count.NewOp(notifyChan)
 	var sstream1 *Stream
 	// Access stream on the server.
 	st.mu.Lock()
@@ -1010,6 +1063,7 @@ func (s) TestClientConnDecoupledFromApplicationRead(t *testing.T) {
 		t.Fatalf("Server failed to write data. Err: %v", err)
 	}
 	notifyChan = make(chan struct{})
+	count.NewCh(notifyChan)
 	server.mu.Lock()
 	server.h.notify = notifyChan
 	server.mu.Unlock()
@@ -1019,6 +1073,7 @@ func (s) TestClientConnDecoupledFromApplicationRead(t *testing.T) {
 		t.Fatalf("Client failed to create second stream. Err: %v", err)
 	}
 	<-notifyChan
+	count.NewOp(notifyChan)
 	var sstream2 *Stream
 	st.mu.Lock()
 	for _, v := range st.activeStreams {
@@ -1132,11 +1187,13 @@ func (s) TestServerWithMisbehavedClient(t *testing.T) {
 	}
 	// success chan indicates that reader received a RSTStream from server.
 	success := make(chan struct{})
+	count.NewCh(success)
 	var mu sync.Mutex
 	framer := http2.NewFramer(mconn, mconn)
 	if err := framer.WriteSettings(); err != nil {
 		t.Fatalf("Error while writing settings: %v", err)
 	}
+	count.NewGo()
 	go func() { // Launch a reader for this misbehaving client.
 		for {
 			frame, err := framer.ReadFrame()
@@ -1225,6 +1282,8 @@ func (s) TestClientWithMisbehavedServer(t *testing.T) {
 	// success chan indicates that the server received
 	// RSTStream from the client.
 	success := make(chan struct{})
+	count.NewCh(success)
+	count.NewGo()
 	go func() { // Launch the misbehaving server.
 		sconn, err := lis.Accept()
 		if err != nil {
@@ -1249,7 +1308,10 @@ func (s) TestClientWithMisbehavedServer(t *testing.T) {
 			}
 			switch frame := frame.(type) {
 			case *http2.HeadersFrame:
-				// When the client creates a stream, violate the stream flow control.
+				count.
+					// When the client creates a stream, violate the stream flow control.
+					NewGo()
+
 				go func() {
 					buf := make([]byte, http2MaxFrameLen)
 					for {
@@ -1291,8 +1353,10 @@ func (s) TestClientWithMisbehavedServer(t *testing.T) {
 		t.Fatalf("Error while creating stream: %v", err)
 	}
 	timer := time.NewTimer(time.Second * 5)
+	count.NewGo()
 	go func() { // This go routine mimics the one in stream.go to call CloseStream.
 		<-str.Done()
+		count.NewOp(str.Done())
 		ct.CloseStream(str, nil)
 	}()
 	select {
@@ -1486,6 +1550,7 @@ func testFlowControlAccountCheck(t *testing.T, msgSize int, wc windowSizeConfig)
 	// For each stream send pingpong messages to the server.
 	for _, stream := range clientStreams {
 		wg.Add(1)
+		count.NewGo()
 		go func(stream *Stream) {
 			defer wg.Done()
 			buf := make([]byte, msgSize+5)
@@ -1541,9 +1606,13 @@ func testFlowControlAccountCheck(t *testing.T, msgSize int, wc windowSizeConfig)
 	client.Close()
 	st.Close()
 	<-st.readerDone
+	count.NewOp(st.readerDone)
 	<-st.writerDone
+	count.NewOp(st.writerDone)
 	<-client.readerDone
+	count.NewOp(client.readerDone)
 	<-client.writerDone
+	count.NewOp(client.writerDone)
 	for _, cstream := range clientStreams {
 		id := cstream.id
 		sstream := serverStreams[id]
@@ -1585,6 +1654,7 @@ func waitWhileTrue(t *testing.T, condition func() (bool, error)) {
 		}
 		if !timer.Stop() {
 			<-timer.C
+			count.NewOp(timer.C)
 		}
 		break
 	}
@@ -1679,9 +1749,12 @@ func runPingPongTest(t *testing.T, msgSize int) {
 	opts := &Options{}
 	incomingHeader := make([]byte, 5)
 	done := make(chan struct{})
+	count.NewCh(done)
+	count.NewGo()
 	go func() {
 		timer := time.NewTimer(time.Second * 5)
 		<-timer.C
+		count.NewOp(timer.C)
 		close(done)
 	}()
 	for {

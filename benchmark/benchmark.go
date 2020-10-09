@@ -25,6 +25,7 @@ package benchmark
 
 import (
 	"context"
+	"count"
 	"fmt"
 	"io"
 	"log"
@@ -108,6 +109,7 @@ func (s *testServer) UnconstrainedStreamingCall(stream testpb.BenchmarkService_U
 		Payload: new(testpb.Payload),
 	}
 	setPayload(response.Payload, in.ResponseType, int(in.ResponseSize))
+	count.NewGo()
 
 	go func() {
 		for {
@@ -121,6 +123,7 @@ func (s *testServer) UnconstrainedStreamingCall(stream testpb.BenchmarkService_U
 			}
 		}
 	}()
+	count.NewGo()
 
 	go func() {
 		for {
@@ -135,6 +138,7 @@ func (s *testServer) UnconstrainedStreamingCall(stream testpb.BenchmarkService_U
 	}()
 
 	<-stream.Context().Done()
+	count.NewOp(stream.Context().Done())
 	return stream.Context().Err()
 }
 
@@ -217,6 +221,7 @@ func StartServer(info ServerInfo, opts ...grpc.ServerOption) func() {
 	default:
 		grpclog.Fatalf("failed to StartServer, unknown Type: %v", info.Type)
 	}
+	count.NewGo()
 	go s.Serve(info.Listener)
 	return func() {
 		s.Stop()

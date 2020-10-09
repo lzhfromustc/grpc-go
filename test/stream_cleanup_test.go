@@ -20,6 +20,7 @@ package test
 
 import (
 	"context"
+	"count"
 	"io"
 	"testing"
 	"time"
@@ -63,6 +64,7 @@ func (s) TestStreamCleanupAfterSendStatus(t *testing.T) {
 	const bodySize = 2 * initialWindowSize   // Something that is not going to fit in a single window
 
 	serverReturnedStatus := make(chan struct{})
+	count.NewCh(serverReturnedStatus)
 
 	ss := &stubServer{
 		fullDuplexCall: func(stream testpb.TestService_FullDuplexCallServer) error {
@@ -102,15 +104,20 @@ func (s) TestStreamCleanupAfterSendStatus(t *testing.T) {
 	// after the status is sent by loopyWriter, and the status send is blocked
 	// by flow control.
 	<-serverReturnedStatus
+	count.
 
-	// 3. GracefulStop (besides sending goaway) checks the number of
-	// activeStreams.
-	//
-	// It will close the connection if there's no active streams. This won't
-	// happen because of the pending stream. But if there's a bug in stream
-	// cleanup that causes stream to be removed too aggressively, the connection
-	// will be closd and the stream will be broken.
+		// 3. GracefulStop (besides sending goaway) checks the number of
+		// activeStreams.
+		//
+		// It will close the connection if there's no active streams. This won't
+		// happen because of the pending stream. But if there's a bug in stream
+		// cleanup that causes stream to be removed too aggressively, the connection
+		// will be closd and the stream will be broken.
+		NewOp(serverReturnedStatus)
+
 	gracefulStopDone := make(chan struct{})
+	count.NewCh(gracefulStopDone)
+	count.NewGo()
 	go func() {
 		defer close(gracefulStopDone)
 		ss.s.GracefulStop()

@@ -25,6 +25,7 @@
 package channelz_test
 
 import (
+	"count"
 	"net"
 	"reflect"
 	"syscall"
@@ -50,6 +51,7 @@ func (s) TestGetSocketOpt(t *testing.T) {
 		t.Fatalf("net.Listen(%s,%s) failed with err: %v", network, addr, err)
 	}
 	defer ln.Close()
+	count.NewGo()
 	go func() {
 		ln.Accept()
 	}()

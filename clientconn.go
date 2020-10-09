@@ -20,6 +20,7 @@ package grpc
 
 import (
 	"context"
+	"count"
 	"errors"
 	"fmt"
 	"math"
@@ -280,6 +281,7 @@ func DialContext(ctx context.Context, target string, opts ...DialOption) (conn *
 		}
 	}
 	if cc.dopts.scChan != nil {
+		count.NewGo()
 		go cc.scWatcher()
 	}
 
@@ -433,6 +435,7 @@ func (csm *connectivityStateManager) getNotifyChan() <-chan struct{} {
 	defer csm.mu.Unlock()
 	if csm.notifyChan == nil {
 		csm.notifyChan = make(chan struct{})
+		count.NewCh(csm.notifyChan)
 	}
 	return csm.notifyChan
 }
@@ -794,8 +797,11 @@ func (ac *addrConn) connect() error {
 	// concurrent calls from resetting the transport more than once.
 	ac.updateConnectivityState(connectivity.Connecting, nil)
 	ac.mu.Unlock()
+	count.
 
-	// Start a goroutine connecting to the server asynchronously.
+		// Start a goroutine connecting to the server asynchronously.
+		NewGo()
+
 	go ac.resetTransport()
 	return nil
 }
@@ -945,6 +951,7 @@ func (cc *ClientConn) resolveNow(o resolver.ResolveNowOptions) {
 	if r == nil {
 		return
 	}
+	count.NewGo()
 	go r.resolveNow(o)
 }
 
@@ -1154,6 +1161,7 @@ func (ac *addrConn) resetTransport() {
 		// Block until the created transport is down. And when this happens,
 		// we restart from the top of the addr list.
 		<-reconnect.Done()
+		count.NewOp(reconnect.Done())
 		hcancel()
 		// restart connecting - the top of the loop will set state to
 		// CONNECTING.  This is against the current connectivity semantics doc,
@@ -1211,7 +1219,9 @@ func (ac *addrConn) tryAllAddrs(addrs []resolver.Address, connectDeadline time.T
 // disconnects.
 func (ac *addrConn) createTransport(addr resolver.Address, copts transport.ConnectOptions, connectDeadline time.Time) (transport.ClientTransport, *grpcsync.Event, error) {
 	prefaceReceived := make(chan struct{})
+	count.NewCh(prefaceReceived)
 	onCloseCalled := make(chan struct{})
+	count.NewCh(onCloseCalled)
 	reconnect := grpcsync.NewEvent()
 
 	authority := ac.cc.authority
@@ -1352,7 +1362,10 @@ func (ac *addrConn) startHealthCheck(ctx context.Context) {
 		}
 		ac.updateConnectivityState(s, lastErr)
 	}
-	// Start the health checking stream.
+	count.
+		// Start the health checking stream.
+		NewGo()
+
 	go func() {
 		err := ac.cc.dopts.healthCheckFunc(ctx, newStream, setConnectivityState, healthCheckConfig.ServiceName)
 		if err != nil {
@@ -1370,6 +1383,7 @@ func (ac *addrConn) resetConnectBackoff() {
 	close(ac.resetBackoff)
 	ac.backoffIdx = 0
 	ac.resetBackoff = make(chan struct{})
+	count.NewCh(ac.resetBackoff)
 	ac.mu.Unlock()
 }
 

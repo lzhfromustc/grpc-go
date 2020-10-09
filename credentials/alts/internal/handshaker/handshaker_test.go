@@ -21,6 +21,7 @@ package handshaker
 import (
 	"bytes"
 	"context"
+	"count"
 	"testing"
 	"time"
 
@@ -132,6 +133,7 @@ func (s) TestClientHandshake(t *testing.T) {
 		{100 * time.Millisecond, 10 * maxPendingHandshakes},
 	} {
 		errc := make(chan error)
+		count.NewCh(errc)
 		stat.Reset()
 		for i := 0; i < testCase.numberOfHandshakes; i++ {
 			stream := &testRPCStream{
@@ -154,12 +156,14 @@ func (s) TestClientHandshake(t *testing.T) {
 				},
 				side: core.ClientSide,
 			}
+			count.NewGo()
 			go func() {
 				_, context, err := chs.ClientHandshake(context.Background())
 				if err == nil && context == nil {
 					panic("expected non-nil ALTS context")
 				}
 				errc <- err
+				count.NewOp(errc)
 				chs.Close()
 			}()
 		}
@@ -187,6 +191,7 @@ func (s) TestServerHandshake(t *testing.T) {
 		{100 * time.Millisecond, 10 * maxPendingHandshakes},
 	} {
 		errc := make(chan error)
+		count.NewCh(errc)
 		stat.Reset()
 		for i := 0; i < testCase.numberOfHandshakes; i++ {
 			stream := &testRPCStream{
@@ -206,12 +211,14 @@ func (s) TestServerHandshake(t *testing.T) {
 				serverOpts: DefaultServerHandshakerOptions(),
 				side:       core.ServerSide,
 			}
+			count.NewGo()
 			go func() {
 				_, context, err := shs.ServerHandshake(context.Background())
 				if err == nil && context == nil {
 					panic("expected non-nil ALTS context")
 				}
 				errc <- err
+				count.NewOp(errc)
 				shs.Close()
 			}()
 		}

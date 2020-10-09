@@ -20,6 +20,7 @@ package naming
 
 import (
 	"context"
+	"count"
 	"errors"
 	"fmt"
 	"net"
@@ -125,6 +126,7 @@ func (r *dnsResolver) Resolve(target string) (Watcher, error) {
 		}
 		host, _ = formatIP(host)
 		ipWatcher.updateChan <- &Update{Op: Add, Addr: host + ":" + port}
+		count.NewOp(ipWatcher.updateChan)
 		return ipWatcher, nil
 	}
 

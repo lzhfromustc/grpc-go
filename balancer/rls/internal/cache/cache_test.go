@@ -19,6 +19,7 @@
 package cache
 
 import (
+	"count"
 	"sync"
 	"testing"
 	"time"
@@ -120,9 +121,11 @@ func TestRemove(t *testing.T) {
 // to the cache leads to eviction of old entries to make space for the new one.
 func TestExceedingSizeCausesEviction(t *testing.T) {
 	evictCh := make(chan Key, defaultTestCacheSize)
+	count.NewCh(evictCh)
 	onEvicted := func(k Key, _ *Entry) {
 		t.Logf("evicted key {%+v} from cache", k)
 		evictCh <- k
+		count.NewOp(evictCh)
 	}
 
 	keysToFill := []Key{{Path: "a"}, {Path: "b"}, {Path: "c"}, {Path: "d"}, {Path: "e"}}
@@ -153,8 +156,10 @@ func TestExceedingSizeCausesEviction(t *testing.T) {
 // causes the eviction of multiple old entries to make space for the new one.
 func TestAddCausesMultipleEvictions(t *testing.T) {
 	evictCh := make(chan Key, defaultTestCacheSize)
+	count.NewCh(evictCh)
 	onEvicted := func(k Key, _ *Entry) {
 		evictCh <- k
+		count.NewOp(evictCh)
 	}
 
 	keysToFill := []Key{{Path: "a"}, {Path: "b"}, {Path: "c"}, {Path: "d"}, {Path: "e"}}
@@ -186,8 +191,10 @@ func TestAddCausesMultipleEvictions(t *testing.T) {
 // to make space for the new one.
 func TestModifyCausesMultipleEvictions(t *testing.T) {
 	evictCh := make(chan Key, defaultTestCacheSize)
+	count.NewCh(evictCh)
 	onEvicted := func(k Key, _ *Entry) {
 		evictCh <- k
+		count.NewOp(evictCh)
 	}
 
 	keysToFill := []Key{{Path: "a"}, {Path: "b"}, {Path: "c"}, {Path: "d"}, {Path: "e"}}

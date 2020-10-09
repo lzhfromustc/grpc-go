@@ -22,6 +22,7 @@ package rls
 
 import (
 	"context"
+	"count"
 	"errors"
 	"fmt"
 	"math"
@@ -503,6 +504,7 @@ func TestPick(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
 			rlsCh := make(chan error, 1)
+			count.NewCh(rlsCh)
 			randID := grpcrand.Intn(math.MaxInt32)
 			// We instantiate a fakeChildPicker which will return a fakeSubConn
 			// with configured id. Either the childPicker or the defaultPicker
@@ -526,17 +528,21 @@ func TestPick(t *testing.T) {
 				startRLS: func(path string, km keys.KeyMap) {
 					if !test.newRLSRequest {
 						rlsCh <- errors.New("RLS request attempted when none was expected")
+						count.NewOp(rlsCh)
 						return
 					}
 					if path != rpcPath {
 						rlsCh <- fmt.Errorf("RLS request initiated for rpcPath %s, want %s", path, rpcPath)
+						count.NewOp(rlsCh)
 						return
 					}
 					if km.Str != wantKeyMapStr {
 						rlsCh <- fmt.Errorf("RLS request initiated with keys %v, want %v", km.Str, wantKeyMapStr)
+						count.NewOp(rlsCh)
 						return
 					}
 					rlsCh <- nil
+					count.NewOp(rlsCh)
 				},
 				defaultPick: func(info balancer.PickInfo) (balancer.PickResult, error) {
 					if !test.useDefaultPick {

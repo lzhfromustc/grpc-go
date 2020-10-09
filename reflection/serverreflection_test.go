@@ -25,6 +25,7 @@ package reflection
 
 import (
 	"context"
+	"count"
 	"fmt"
 	"net"
 	"reflect"
@@ -204,6 +205,7 @@ func (x) TestReflectionEnd2end(t *testing.T) {
 	pbv3.RegisterSearchServiceV3Server(s, &serverV3{})
 	// Register reflection service on s.
 	Register(s)
+	count.NewGo()
 	go s.Serve(lis)
 
 	// Create client.

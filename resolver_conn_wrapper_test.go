@@ -20,6 +20,7 @@ package grpc
 
 import (
 	"context"
+	"count"
 	"errors"
 	"fmt"
 	"net"
@@ -51,6 +52,7 @@ func (s) TestDialParseTargetUnknownScheme(t *testing.T) {
 		{"passthrough://a.server.com/google.com", "google.com"},
 	} {
 		dialStrCh := make(chan string, 1)
+		count.NewCh(dialStrCh)
 		cc, err := Dial(test.targetStr, WithInsecure(), WithDialer(func(addr string, _ time.Duration) (net.Conn, error) {
 			select {
 			case dialStrCh <- addr:
@@ -71,16 +73,19 @@ func (s) TestDialParseTargetUnknownScheme(t *testing.T) {
 
 func testResolverErrorPolling(t *testing.T, badUpdate func(*manual.Resolver), goodUpdate func(*manual.Resolver), dopts ...DialOption) {
 	boIter := make(chan int)
+	count.NewCh(boIter)
 	resolverBackoff := func(v int) time.Duration {
 		boIter <- v
+		count.NewOp(boIter)
 		return 0
 	}
 
 	r, rcleanup := manual.GenerateAndRegisterManualResolver()
 	defer rcleanup()
 	rn := make(chan struct{})
+	count.NewCh(rn)
 	defer func() { close(rn) }()
-	r.ResolveNowCallback = func(resolver.ResolveNowOptions) { rn <- struct{}{} }
+	r.ResolveNowCallback = func(resolver.ResolveNowOptions) { rn <- struct{}{}; count.NewOp(rn) }
 
 	defaultDialOptions := []DialOption{
 		WithInsecure(),
@@ -99,6 +104,7 @@ func testResolverErrorPolling(t *testing.T, badUpdate func(*manual.Resolver), go
 	// Ensure ResolveNow is called, then Backoff with the right parameter, several times
 	for i := 0; i < 7; i++ {
 		<-rn
+		count.NewOp(rn)
 		if v := <-boIter; v != i {
 			t.Errorf("Backoff call %v uses value %v", i, v)
 		}
@@ -116,6 +122,7 @@ func testResolverErrorPolling(t *testing.T, badUpdate func(*manual.Resolver), go
 		case <-rn:
 			// ClientConn is still calling ResolveNow
 			<-boIter
+			count.NewOp(boIter)
 			time.Sleep(5 * time.Millisecond)
 			continue
 		case <-t.C:
@@ -145,8 +152,11 @@ func (s) TestResolverErrorPolling(t *testing.T) {
 	testResolverErrorPolling(t, func(r *manual.Resolver) {
 		r.CC.ReportError(errors.New("res err"))
 	}, func(r *manual.Resolver) {
-		// UpdateState will block if ResolveNow is being called (which blocks on
-		// rn), so call it in a goroutine.
+		count.
+			// UpdateState will block if ResolveNow is being called (which blocks on
+			// rn), so call it in a goroutine.
+			NewGo()
+
 		go r.CC.UpdateState(resolver.State{})
 	},
 		WithDefaultServiceConfig(fmt.Sprintf(`{ "loadBalancingConfig": [{"%v": {}}] }`, happyBalancerName)))
@@ -160,8 +170,11 @@ func (s) TestServiceConfigErrorPolling(t *testing.T) {
 		badsc := r.CC.ParseServiceConfig("bad config")
 		r.UpdateState(resolver.State{ServiceConfig: badsc})
 	}, func(r *manual.Resolver) {
-		// UpdateState will block if ResolveNow is being called (which blocks on
-		// rn), so call it in a goroutine.
+		count.
+			// UpdateState will block if ResolveNow is being called (which blocks on
+			// rn), so call it in a goroutine.
+			NewGo()
+
 		go r.CC.UpdateState(resolver.State{})
 	},
 		WithDefaultServiceConfig(fmt.Sprintf(`{ "loadBalancingConfig": [{"%v": {}}] }`, happyBalancerName)))

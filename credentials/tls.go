@@ -20,6 +20,7 @@ package credentials
 
 import (
 	"context"
+	"count"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -80,8 +81,11 @@ func (c *tlsCreds) ClientHandshake(ctx context.Context, authority string, rawCon
 	}
 	conn := tls.Client(rawConn, cfg)
 	errChannel := make(chan error, 1)
+	count.NewCh(errChannel)
+	count.NewGo()
 	go func() {
 		errChannel <- conn.Handshake()
+		count.NewOp(errChannel)
 		close(errChannel)
 	}()
 	select {

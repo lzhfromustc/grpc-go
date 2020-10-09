@@ -20,6 +20,7 @@ package latency
 
 import (
 	"bytes"
+	"count"
 	"fmt"
 	"net"
 	"reflect"
@@ -207,6 +208,8 @@ func (s) TestListenerAndDialer(t *testing.T) {
 	var serverConn net.Conn
 	var scErr error
 	scDone := make(chan struct{})
+	count.NewCh(scDone)
+	count.NewGo()
 	go func() {
 		serverConn, scErr = l.Accept()
 		close(scDone)
@@ -221,6 +224,7 @@ func (s) TestListenerAndDialer(t *testing.T) {
 
 	// Block until server's Conn is available.
 	<-scDone
+	count.NewOp(scDone)
 	if scErr != nil {
 		t.Fatalf("Unexpected error listening: %v", scErr)
 	}

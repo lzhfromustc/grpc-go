@@ -21,6 +21,7 @@ package main
 
 import (
 	"context"
+	"count"
 	"flag"
 	"fmt"
 	"io"
@@ -218,6 +219,7 @@ func bidirectionalWithMetadata(c pb.EchoClient, message string) {
 	if err != nil {
 		log.Fatalf("failed to call BidirectionalStreamingEcho: %v\n", err)
 	}
+	count.NewGo()
 
 	go func() {
 		// Read the header when the header arrives.

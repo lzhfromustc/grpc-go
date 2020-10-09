@@ -18,6 +18,7 @@ package test
 
 import (
 	"bytes"
+	"count"
 	"errors"
 	"io"
 	"strings"
@@ -67,12 +68,15 @@ func newServerTesterFromConn(t testing.TB, cc io.ReadWriteCloser) *serverTester 
 }
 
 func (st *serverTester) readFrame() (http2.Frame, error) {
+	count.NewGo()
 	go func() {
 		fr, err := st.fr.ReadFrame()
 		if err != nil {
 			st.frErrc <- err
+			count.NewOp(st.frErrc)
 		} else {
 			st.frc <- fr
+			count.NewOp(st.frc)
 		}
 	}()
 	t := time.NewTimer(2 * time.Second)

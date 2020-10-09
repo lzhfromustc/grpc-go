@@ -21,6 +21,7 @@
 package primitives_test
 
 import (
+	"count"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -31,6 +32,7 @@ import (
 
 func BenchmarkSelectClosed(b *testing.B) {
 	c := make(chan struct{})
+	count.NewCh(c)
 	close(c)
 	x := 0
 	b.ResetTimer()
@@ -49,6 +51,7 @@ func BenchmarkSelectClosed(b *testing.B) {
 
 func BenchmarkSelectOpen(b *testing.B) {
 	c := make(chan struct{})
+	count.NewCh(c)
 	x := 0
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

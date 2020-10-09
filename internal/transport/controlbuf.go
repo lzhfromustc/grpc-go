@@ -20,6 +20,7 @@ package transport
 
 import (
 	"bytes"
+	"count"
 	"fmt"
 	"runtime"
 	"sync"
@@ -336,6 +337,7 @@ func (c *controlBuffer) executeAndPut(f func(it interface{}) bool, it cbItem) (b
 			// We are adding the frame that puts us over the threshold; create
 			// a throttling channel.
 			ch := make(chan struct{})
+			count.NewCh(ch)
 			c.trfChan.Store(&ch)
 		}
 	}
@@ -720,6 +722,7 @@ func (l *loopyWriter) pingHandler(p *ping) error {
 
 func (l *loopyWriter) outFlowControlSizeRequestHandler(o *outFlowControlSizeRequest) error {
 	o.resp <- l.sendQuota
+	count.NewOp(o.resp)
 	return nil
 }
 

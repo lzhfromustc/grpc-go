@@ -19,6 +19,7 @@ package client
 
 import (
 	"context"
+	"count"
 
 	corepb "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/golang/protobuf/proto"
@@ -74,6 +75,7 @@ func (c *Client) ReportLoad(server string, clusterName string, loadStore lrs.Sto
 	nodeTemp.Metadata.Fields[nodeMetadataHostnameKey] = &structpb.Value{
 		Kind: &structpb.Value_StringValue{StringValue: c.opts.TargetName},
 	}
+	count.NewGo()
 	go loadStore.ReportTo(ctx, c.cc, clusterName, nodeTemp)
 	return func() {
 		cancel()

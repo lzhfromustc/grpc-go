@@ -21,6 +21,7 @@ package main
 
 import (
 	"context"
+	"count"
 	"flag"
 	"fmt"
 	"log"
@@ -55,6 +56,7 @@ func setupClientProfiling() error {
 		fmt.Printf("error calling profsvc.Init: %v\n", err)
 		return err
 	}
+	count.NewGo()
 
 	go s.Serve(lis)
 	return nil

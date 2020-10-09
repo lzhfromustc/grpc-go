@@ -41,6 +41,7 @@ package main
 
 import (
 	"context"
+	"count"
 	"encoding/gob"
 	"flag"
 	"fmt"
@@ -212,9 +213,11 @@ func unconstrainedStreamBenchmark(start startFunc, stop ucStopFunc, bf stats.Fea
 	defer cleanup()
 
 	var req, resp uint64
+	count.NewGo()
 	go func() {
 		// Resets the counters once warmed up
 		<-time.NewTimer(warmuptime).C
+		count.NewOp(time.NewTimer(warmuptime).C)
 		atomic.StoreUint64(&req, 0)
 		atomic.StoreUint64(&resp, 0)
 		start(workloadsUnconstrained, bf)
@@ -224,6 +227,7 @@ func unconstrainedStreamBenchmark(start startFunc, stop ucStopFunc, bf stats.Fea
 	var wg sync.WaitGroup
 	wg.Add(2 * bf.MaxConcurrentCalls)
 	for i := 0; i < bf.MaxConcurrentCalls; i++ {
+		count.NewGo()
 		go func(pos int) {
 			defer wg.Done()
 			for {
@@ -235,6 +239,7 @@ func unconstrainedStreamBenchmark(start startFunc, stop ucStopFunc, bf stats.Fea
 				atomic.AddUint64(&req, 1)
 			}
 		}(i)
+		count.NewGo()
 		go func(pos int) {
 			defer wg.Done()
 			for {
@@ -447,6 +452,7 @@ func runBenchmark(caller rpcCallFunc, start startFunc, stop stopFunc, bf stats.F
 	bmEnd := time.Now().Add(bf.BenchTime)
 	var count uint64
 	for i := 0; i < bf.MaxConcurrentCalls; i++ {
+		count.NewGo()
 		go func(pos int) {
 			defer wg.Done()
 			for {

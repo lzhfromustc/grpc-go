@@ -19,6 +19,7 @@
 package client
 
 import (
+	"count"
 	"errors"
 	"fmt"
 	"testing"
@@ -280,6 +281,7 @@ func testCDSCaching(t *testing.T, cdsTestOps []cdsTestOp, errCh *testutils.Chann
 	t.Log("Started xds v2Client...")
 
 	callbackCh := make(chan struct{}, 1)
+	count.NewCh(callbackCh)
 	for _, cdsTestOp := range cdsTestOps {
 		// Register a watcher if required, and use a channel to signal the
 		// successful invocation of the callback.
@@ -287,6 +289,7 @@ func testCDSCaching(t *testing.T, cdsTestOps []cdsTestOp, errCh *testutils.Chann
 			v2c.watchCDS(cdsTestOp.target, func(u CDSUpdate, err error) {
 				t.Logf("Received callback with CDSUpdate {%+v} and error {%v}", u, err)
 				callbackCh <- struct{}{}
+				count.NewOp(callbackCh)
 			})
 			t.Logf("Registered a watcher for CDS target: %v...", cdsTestOp.target)
 
@@ -314,6 +317,7 @@ func testCDSCaching(t *testing.T, cdsTestOps []cdsTestOp, errCh *testutils.Chann
 		// ok not to verify the contents of the callback.
 		if cdsTestOp.wantWatchCallback {
 			<-callbackCh
+			count.NewOp(callbackCh)
 		}
 
 		if !cmp.Equal(v2c.cloneCDSCacheForTesting(), cdsTestOp.wantCDSCache) {
@@ -369,6 +373,7 @@ func (s) TestCDSCaching(t *testing.T) {
 		},
 	}
 	errCh := testutils.NewChannel()
+	count.NewGo()
 	go testCDSCaching(t, ops, errCh)
 	waitForNilErr(t, errCh)
 }

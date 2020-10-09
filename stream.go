@@ -20,6 +20,7 @@ package grpc
 
 import (
 	"context"
+	"count"
 	"errors"
 	"io"
 	"math"
@@ -309,11 +310,14 @@ func newClientStream(ctx context.Context, desc *StreamDesc, cc *ClientConn, meth
 	}
 
 	if desc != unaryStreamDesc {
-		// Listen on cc and stream contexts to cleanup when the user closes the
-		// ClientConn or cancels the stream context.  In all other cases, an error
-		// should already be injected into the recv buffer by the transport, which
-		// the client will eventually receive, and then we will cancel the stream's
-		// context in clientStream.finish.
+		count.
+			// Listen on cc and stream contexts to cleanup when the user closes the
+			// ClientConn or cancels the stream context.  In all other cases, an error
+			// should already be injected into the recv buffer by the transport, which
+			// the client will eventually receive, and then we will cancel the stream's
+			// context in clientStream.finish.
+			NewGo()
+
 		go func() {
 			select {
 			case <-cc.ctx.Done():
@@ -473,6 +477,7 @@ func (cs *clientStream) shouldRetry(err error) error {
 	// Wait for the trailers.
 	if cs.attempt.s != nil {
 		<-cs.attempt.s.Done()
+		count.NewOp(cs.attempt.s.Done())
 	}
 	if cs.firstAttempt && (cs.attempt.s == nil || cs.attempt.s.Unprocessed()) {
 		// First attempt, stream unprocessed: transparently retry.
@@ -598,6 +603,7 @@ func (cs *clientStream) withRetry(op func(a *csAttempt) error, onSuccess func())
 		}
 		if err == io.EOF {
 			<-a.s.Done()
+			count.NewOp(a.s.Done())
 		}
 		if err == nil || (err == io.EOF && a.s.Status().Code() == codes.OK) {
 			onSuccess()
@@ -1076,11 +1082,14 @@ func newNonRetryClientStream(ctx context.Context, desc *StreamDesc, method strin
 	as.p = &parser{r: s}
 	ac.incrCallsStarted()
 	if desc != unaryStreamDesc {
-		// Listen on cc and stream contexts to cleanup when the user closes the
-		// ClientConn or cancels the stream context.  In all other cases, an error
-		// should already be injected into the recv buffer by the transport, which
-		// the client will eventually receive, and then we will cancel the stream's
-		// context in clientStream.finish.
+		count.
+			// Listen on cc and stream contexts to cleanup when the user closes the
+			// ClientConn or cancels the stream context.  In all other cases, an error
+			// should already be injected into the recv buffer by the transport, which
+			// the client will eventually receive, and then we will cancel the stream's
+			// context in clientStream.finish.
+			NewGo()
+
 		go func() {
 			select {
 			case <-ac.ctx.Done():

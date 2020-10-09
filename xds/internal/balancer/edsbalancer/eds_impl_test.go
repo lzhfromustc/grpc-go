@@ -17,6 +17,7 @@
 package edsbalancer
 
 import (
+	"count"
 	"fmt"
 	"sort"
 	"testing"
@@ -422,6 +423,7 @@ func (s) TestEDS_UpdateSubBalancerName(t *testing.T) {
 
 	for i := 0; i < 2; i++ {
 		<-cc.RemoveSubConnCh
+		count.NewOp(cc.RemoveSubConnCh)
 	}
 
 	sc1 := <-cc.NewSubConnCh
@@ -468,6 +470,7 @@ func (s) TestEDS_UpdateSubBalancerName(t *testing.T) {
 
 	for i := 0; i < 2; i++ {
 		<-cc.RemoveSubConnCh
+		count.NewOp(cc.RemoveSubConnCh)
 	}
 
 	sc3 := <-cc.NewSubConnCh
@@ -526,8 +529,11 @@ func (s) TestEDS_ChildPolicyUpdatePickerInline(t *testing.T) {
 	cc := testutils.NewTestClientConn(t)
 	edsb := newEDSBalancerImpl(cc, nil, nil, nil)
 	edsb.enqueueChildBalancerStateUpdate = func(p priorityType, state balancer.State) {
-		// For this test, euqueue needs to happen asynchronously (like in the
-		// real implementation).
+		count.
+			// For this test, euqueue needs to happen asynchronously (like in the
+			// real implementation).
+			NewGo()
+
 		go edsb.updateState(p, state)
 	}
 

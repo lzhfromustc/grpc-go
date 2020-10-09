@@ -20,6 +20,7 @@ package grpc
 
 import (
 	"context"
+	"count"
 	"fmt"
 	"sync/atomic"
 	"testing"
@@ -79,6 +80,7 @@ func (s) TestBlockingPick(t *testing.T) {
 	// All goroutines should block because picker is nil in bp.
 	var finishedCount uint64
 	for i := goroutineCount; i > 0; i-- {
+		count.NewGo()
 		go func() {
 			if tr, _, err := bp.pick(context.Background(), true, balancer.PickInfo{}); err != nil || tr != testT {
 				t.Errorf("bp.pick returned non-nil error: %v", err)
@@ -99,6 +101,7 @@ func (s) TestBlockingPickNoSubAvailable(t *testing.T) {
 	bp.updatePicker(&testingPicker{err: balancer.ErrNoSubConnAvailable, maxCalled: goroutineCount})
 	// All goroutines should block because picker returns no sc available.
 	for i := goroutineCount; i > 0; i-- {
+		count.NewGo()
 		go func() {
 			if tr, _, err := bp.pick(context.Background(), true, balancer.PickInfo{}); err != nil || tr != testT {
 				t.Errorf("bp.pick returned non-nil error: %v", err)
@@ -120,6 +123,7 @@ func (s) TestBlockingPickTransientWaitforready(t *testing.T) {
 	// All goroutines should block because picker returns transientFailure and
 	// picks are not failfast.
 	for i := goroutineCount; i > 0; i-- {
+		count.NewGo()
 		go func() {
 			if tr, _, err := bp.pick(context.Background(), false, balancer.PickInfo{}); err != nil || tr != testT {
 				t.Errorf("bp.pick returned non-nil error: %v", err)
@@ -140,6 +144,7 @@ func (s) TestBlockingPickSCNotReady(t *testing.T) {
 	var finishedCount uint64
 	// All goroutines should block because sc is not ready.
 	for i := goroutineCount; i > 0; i-- {
+		count.NewGo()
 		go func() {
 			if tr, _, err := bp.pick(context.Background(), true, balancer.PickInfo{}); err != nil || tr != testT {
 				t.Errorf("bp.pick returned non-nil error: %v", err)

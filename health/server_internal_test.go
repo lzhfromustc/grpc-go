@@ -19,6 +19,7 @@
 package health
 
 import (
+	"count"
 	"sync"
 	"testing"
 	"time"
@@ -47,7 +48,10 @@ func (s) TestShutdown(t *testing.T) {
 
 	var wg sync.WaitGroup
 	wg.Add(2)
-	// Run SetServingStatus and Shutdown in parallel.
+	count.
+		// Run SetServingStatus and Shutdown in parallel.
+		NewGo()
+
 	go func() {
 		for i := 0; i < 1000; i++ {
 			s.SetServingStatus(testService, healthpb.HealthCheckResponse_SERVING)
@@ -55,6 +59,7 @@ func (s) TestShutdown(t *testing.T) {
 		}
 		wg.Done()
 	}()
+	count.NewGo()
 	go func() {
 		time.Sleep(300 * time.Microsecond)
 		s.Shutdown()

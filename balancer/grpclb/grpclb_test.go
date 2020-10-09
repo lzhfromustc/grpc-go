@@ -20,6 +20,7 @@ package grpclb
 
 import (
 	"context"
+	"count"
 	"errors"
 	"fmt"
 	"io"
@@ -83,9 +84,12 @@ func (c *serverNameCheckCreds) ClientHandshake(ctx context.Context, authority st
 	defer c.mu.Unlock()
 	b := make([]byte, len(authority))
 	errCh := make(chan error, 1)
+	count.NewCh(errCh)
+	count.NewGo()
 	go func() {
 		_, err := rawConn.Read(b)
 		errCh <- err
+		count.NewOp(errCh)
 	}()
 	select {
 	case err := <-errCh:
@@ -210,6 +214,7 @@ func (b *remoteBalancer) stop() {
 
 func (b *remoteBalancer) fallbackNow() {
 	b.fbChan <- struct{}{}
+	count.NewOp(b.fbChan)
 }
 
 func (b *remoteBalancer) BalanceLoad(stream lbgrpc.LoadBalancer_BalanceLoadServer) error {
@@ -234,6 +239,7 @@ func (b *remoteBalancer) BalanceLoad(stream lbgrpc.LoadBalancer_BalanceLoadServe
 	if err := stream.Send(resp); err != nil {
 		return err
 	}
+	count.NewGo()
 	go func() {
 		for {
 			var (
@@ -246,6 +252,7 @@ func (b *remoteBalancer) BalanceLoad(stream lbgrpc.LoadBalancer_BalanceLoadServe
 			b.stats.merge(req.GetClientStats())
 			if b.statsChan != nil && req.GetClientStats() != nil {
 				b.statsChan <- req.GetClientStats()
+				count.NewOp(b.statsChan)
 			}
 		}
 	}()
@@ -305,6 +312,7 @@ func startBackends(sn string, fallback bool, lis ...net.Listener) (servers []*gr
 		s := grpc.NewServer(grpc.Creds(creds))
 		testpb.RegisterTestServiceServer(s, &testServer{addr: l.Addr().String(), fallback: fallback})
 		servers = append(servers, s)
+		count.NewGo()
 		go func(s *grpc.Server, l net.Listener) {
 			s.Serve(l)
 		}(s, l)
@@ -365,6 +373,7 @@ func newLoadBalancer(numberOfBackends int, statsChan chan *lbpb.ClientStats) (ts
 	lb = grpc.NewServer(grpc.Creds(lbCreds))
 	ls = newRemoteBalancer(nil, statsChan)
 	lbgrpc.RegisterLoadBalancerServer(lb, ls)
+	count.NewGo()
 	go func() {
 		lb.Serve(lbLis)
 	}()
@@ -411,6 +420,7 @@ func (s) TestGRPCLB(t *testing.T) {
 		Servers: bes,
 	}
 	tss.ls.sls <- sl
+	count.NewOp(tss.ls.sls)
 	creds := serverNameCheckCreds{}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -486,6 +496,7 @@ func (s) TestGRPCLBWeighted(t *testing.T) {
 			bes = append(bes, beServers[s-'0'])
 		}
 		tss.ls.sls <- &lbpb.ServerList{Servers: bes}
+		count.NewOp(tss.ls.sls)
 
 		for i := 0; i < 1000; i++ {
 			if _, err := testC.EmptyCall(context.Background(), &testpb.Empty{}, grpc.WaitForReady(true), grpc.Peer(&p)); err != nil {
@@ -524,6 +535,8 @@ func (s) TestDropRequest(t *testing.T) {
 			Drop: true,
 		}},
 	}
+	count.NewOp(tss.ls.sls)
+
 	creds := serverNameCheckCreds{}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -677,6 +690,7 @@ func (s) TestBalancerDisconnects(t *testing.T) {
 			Servers: bes,
 		}
 		tss.ls.sls <- sl
+		count.NewOp(tss.ls.sls)
 
 		tests = append(tests, tss)
 		lbs = append(lbs, tss.lb)
@@ -759,6 +773,7 @@ func (s) TestFallback(t *testing.T) {
 		Servers: bes,
 	}
 	tss.ls.sls <- sl
+	count.NewOp(tss.ls.sls)
 	creds := serverNameCheckCreds{}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -840,6 +855,7 @@ func (s) TestFallback(t *testing.T) {
 	tss.beListeners[0].(*restartableListener).restart()
 	tss.lbListener.(*restartableListener).restart()
 	tss.ls.sls <- sl
+	count.NewOp(tss.ls.sls)
 
 	var backendUsed2 bool
 	for i := 0; i < 2000; i++ {
@@ -887,6 +903,7 @@ func (s) TestExplicitFallback(t *testing.T) {
 		Servers: bes,
 	}
 	tss.ls.sls <- sl
+	count.NewOp(tss.ls.sls)
 	creds := serverNameCheckCreds{}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -943,6 +960,7 @@ func (s) TestExplicitFallback(t *testing.T) {
 
 	// Send another server list; should use backends again.
 	tss.ls.sls <- sl
+	count.NewOp(tss.ls.sls)
 
 	backendUsed = false
 	for i := 0; i < 2000; i++ {
@@ -962,6 +980,7 @@ func (s) TestExplicitFallback(t *testing.T) {
 
 func (s) TestFallBackWithNoServerAddress(t *testing.T) {
 	resolveNowCh := make(chan struct{}, 1)
+	count.NewCh(resolveNowCh)
 	r, cleanup := manual.GenerateAndRegisterManualResolver()
 	r.ResolveNowCallback = func(resolver.ResolveNowOptions) {
 		select {
@@ -969,6 +988,7 @@ func (s) TestFallBackWithNoServerAddress(t *testing.T) {
 		default:
 		}
 		resolveNowCh <- struct{}{}
+		count.NewOp(resolveNowCh)
 	}
 	defer cleanup()
 
@@ -1049,8 +1069,11 @@ func (s) TestFallBackWithNoServerAddress(t *testing.T) {
 		}
 
 		tss.ls.sls <- sl
-		// Send an update with balancer address. The backends behind grpclb should
-		// be used.
+		count.
+			// Send an update with balancer address. The backends behind grpclb should
+			// be used.
+			NewOp(tss.ls.sls)
+
 		r.UpdateState(resolver.State{
 			Addresses: []resolver.Address{{
 				Addr:       tss.lbAddr,
@@ -1124,8 +1147,11 @@ func (s) TestGRPCLBPickFirst(t *testing.T) {
 		result string
 	)
 	tss.ls.sls <- &lbpb.ServerList{Servers: beServers[0:3]}
+	count.
 
-	// Start with sub policy pick_first.
+		// Start with sub policy pick_first.
+		NewOp(tss.ls.sls)
+
 	const pfc = `{"loadBalancingConfig":[{"grpclb":{"childPolicy":[{"pick_first":{}}]}}]}`
 	scpr := r.CC.ParseServiceConfig(pfc)
 	if scpr.Err != nil {
@@ -1153,6 +1179,7 @@ func (s) TestGRPCLBPickFirst(t *testing.T) {
 	}
 
 	tss.ls.sls <- &lbpb.ServerList{Servers: beServers[2:]}
+	count.NewOp(tss.ls.sls)
 	result = ""
 	for i := 0; i < 1000; i++ {
 		if _, err := testC.EmptyCall(context.Background(), &testpb.Empty{}, grpc.WaitForReady(true), grpc.Peer(&p)); err != nil {
@@ -1165,6 +1192,7 @@ func (s) TestGRPCLBPickFirst(t *testing.T) {
 	}
 
 	tss.ls.sls <- &lbpb.ServerList{Servers: beServers[1:]}
+	count.NewOp(tss.ls.sls)
 	result = ""
 	for i := 0; i < 1000; i++ {
 		if _, err := testC.EmptyCall(context.Background(), &testpb.Empty{}, grpc.WaitForReady(true), grpc.Peer(&p)); err != nil {
@@ -1203,6 +1231,7 @@ func (s) TestGRPCLBPickFirst(t *testing.T) {
 	}
 
 	tss.ls.sls <- &lbpb.ServerList{Servers: beServers[0:3]}
+	count.NewOp(tss.ls.sls)
 	result = ""
 	for i := 0; i < 1000; i++ {
 		if _, err := testC.EmptyCall(context.Background(), &testpb.Empty{}, grpc.WaitForReady(true), grpc.Peer(&p)); err != nil {
@@ -1256,6 +1285,7 @@ func runAndCheckStats(t *testing.T, drop bool, statsChan chan *lbpb.ClientStats,
 		})
 	}
 	tss.ls.sls <- &lbpb.ServerList{Servers: servers}
+	count.NewOp(tss.ls.sls)
 	tss.ls.statsDura = 100 * time.Millisecond
 	creds := serverNameCheckCreds{}
 
@@ -1446,6 +1476,7 @@ func (s) TestGRPCLBStatsStreamingFailedToSend(t *testing.T) {
 
 func (s) TestGRPCLBStatsQuashEmpty(t *testing.T) {
 	ch := make(chan *lbpb.ClientStats)
+	count.NewCh(ch)
 	defer close(ch)
 	if err := runAndCheckStats(t, false, ch, func(cc *grpc.ClientConn) {
 		// Perform no RPCs; wait for load reports to start, which should be
@@ -1467,6 +1498,7 @@ func (s) TestGRPCLBStatsQuashEmpty(t *testing.T) {
 		case <-time.After(500 * time.Millisecond):
 			// Success.
 		}
+		count.NewGo()
 		go func() {
 			for range ch { // Drain statsChan until it is closed.
 			}

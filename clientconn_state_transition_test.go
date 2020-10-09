@@ -20,6 +20,7 @@ package grpc
 
 import (
 	"context"
+	"count"
 	"net"
 	"sync"
 	"testing"
@@ -62,6 +63,7 @@ func (s) TestStateTransitions_SingleAddress(t *testing.T) {
 					t.Error(err)
 					return nil
 				}
+				count.NewGo()
 
 				go keepReading(conn)
 
@@ -128,6 +130,7 @@ client enters TRANSIENT FAILURE.`,
 					t.Error(err)
 					return nil
 				}
+				count.NewGo()
 
 				go keepReading(conn)
 
@@ -150,6 +153,7 @@ func testStateTransitionSingleAddress(t *testing.T, want []connectivity.State, s
 	// Launch the server.
 	var conn net.Conn
 	var connMu sync.Mutex
+	count.NewGo()
 	go func() {
 		connMu.Lock()
 		conn = server(pl)
@@ -211,14 +215,19 @@ func (s) TestStateTransitions_ReadyToConnecting(t *testing.T) {
 	defer lis.Close()
 
 	sawReady := make(chan struct{})
+	count.
 
-	// Launch the server.
+		// Launch the server.
+		NewCh(sawReady)
+	count.NewGo()
+
 	go func() {
 		conn, err := lis.Accept()
 		if err != nil {
 			t.Error(err)
 			return
 		}
+		count.NewGo()
 
 		go keepReading(conn)
 
@@ -230,6 +239,7 @@ func (s) TestStateTransitions_ReadyToConnecting(t *testing.T) {
 
 		// Prevents race between onPrefaceReceipt and onClose.
 		<-sawReady
+		count.NewOp(sawReady)
 
 		conn.Close()
 	}()
@@ -283,9 +293,14 @@ func (s) TestStateTransitions_TriesAllAddrsBeforeTransientFailure(t *testing.T) 
 	defer lis2.Close()
 
 	server1Done := make(chan struct{})
+	count.NewCh(server1Done)
 	server2Done := make(chan struct{})
+	count.
 
-	// Launch server 1.
+		// Launch server 1.
+		NewCh(server2Done)
+	count.NewGo()
+
 	go func() {
 		conn, err := lis1.Accept()
 		if err != nil {
@@ -296,13 +311,17 @@ func (s) TestStateTransitions_TriesAllAddrsBeforeTransientFailure(t *testing.T) 
 		conn.Close()
 		close(server1Done)
 	}()
-	// Launch server 2.
+	count.
+		// Launch server 2.
+		NewGo()
+
 	go func() {
 		conn, err := lis2.Accept()
 		if err != nil {
 			t.Error(err)
 			return
 		}
+		count.NewGo()
 
 		go keepReading(conn)
 
@@ -378,15 +397,21 @@ func (s) TestStateTransitions_MultipleAddrsEntersReady(t *testing.T) {
 	defer lis2.Close()
 
 	server1Done := make(chan struct{})
+	count.NewCh(server1Done)
 	sawReady := make(chan struct{})
+	count.
 
-	// Launch server 1.
+		// Launch server 1.
+		NewCh(sawReady)
+	count.NewGo()
+
 	go func() {
 		conn, err := lis1.Accept()
 		if err != nil {
 			t.Error(err)
 			return
 		}
+		count.NewGo()
 
 		go keepReading(conn)
 
@@ -397,6 +422,7 @@ func (s) TestStateTransitions_MultipleAddrsEntersReady(t *testing.T) {
 		}
 
 		<-sawReady
+		count.NewOp(sawReady)
 
 		conn.Close()
 
@@ -451,6 +477,7 @@ type stateRecordingBalancer struct {
 
 func (b *stateRecordingBalancer) HandleSubConnStateChange(sc balancer.SubConn, s connectivity.State) {
 	b.notifier <- s
+	count.NewOp(b.notifier)
 	b.Balancer.HandleSubConnStateChange(sc, s)
 }
 
@@ -477,6 +504,7 @@ func (b *stateRecordingBalancerBuilder) Name() string {
 
 func (b *stateRecordingBalancerBuilder) Build(cc balancer.ClientConn, opts balancer.BuildOptions) balancer.Balancer {
 	stateNotifications := make(chan connectivity.State, 10)
+	count.NewCh(stateNotifications)
 	b.mu.Lock()
 	b.notifier = stateNotifications
 	b.mu.Unlock()

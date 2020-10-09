@@ -20,6 +20,7 @@ package advancedtls
 
 import (
 	"context"
+	"count"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -337,6 +338,7 @@ func TestEnd2End(t *testing.T) {
 			}
 			s := grpc.NewServer(grpc.Creds(serverTLSCreds))
 			defer s.Stop()
+			count.NewGo()
 			go func(s *grpc.Server) {
 				lis, err := net.Listen("tcp", port)
 				// defer lis.Close()

@@ -20,6 +20,7 @@ package grpc
 
 import (
 	"context"
+	"count"
 	"fmt"
 	"io"
 	"sync"
@@ -103,6 +104,7 @@ func (pw *pickerWrapper) updatePickerV2(p balancer.V2Picker) {
 	// pw.blockingCh should never be nil.
 	close(pw.blockingCh)
 	pw.blockingCh = make(chan struct{})
+	count.NewCh(pw.blockingCh)
 	pw.mu.Unlock()
 }
 

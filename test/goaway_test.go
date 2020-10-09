@@ -20,6 +20,7 @@ package test
 
 import (
 	"context"
+	"count"
 	"net"
 	"testing"
 	"time"
@@ -54,6 +55,7 @@ func (s) TestGracefulClientOnGoAway(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create listener: %v", err)
 	}
+	count.NewGo()
 	go s.Serve(lis)
 
 	cc, err := grpc.Dial(lis.Addr().String(), grpc.WithInsecure())

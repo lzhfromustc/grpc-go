@@ -28,6 +28,7 @@ qps and latency.
 package main
 
 import (
+	"count"
 	"flag"
 	"fmt"
 	"net"
@@ -70,8 +71,10 @@ func main() {
 	stop := benchmark.StartServer(benchmark.ServerInfo{Type: "protobuf", Listener: lis})
 	// Wait on OS terminate signal.
 	ch := make(chan os.Signal, 1)
+	count.NewCh(ch)
 	signal.Notify(ch, os.Interrupt)
 	<-ch
+	count.NewOp(ch)
 	cpu := time.Duration(syscall.GetCPUTime() - cpuBeg)
 	stop()
 	pprof.StopCPUProfile()

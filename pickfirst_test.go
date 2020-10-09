@@ -20,6 +20,7 @@ package grpc
 
 import (
 	"context"
+	"count"
 	"math"
 	"sync"
 	"testing"
@@ -129,6 +130,7 @@ func (s) TestNewAddressWhileBlockingPickfirst(t *testing.T) {
 	var wg sync.WaitGroup
 	for i := 0; i < 3; i++ {
 		wg.Add(1)
+		count.NewGo()
 		go func() {
 			defer wg.Done()
 			// This RPC blocks until NewAddress is called.
@@ -165,6 +167,7 @@ func (s) TestCloseWithPendingRPCPickfirst(t *testing.T) {
 	var wg sync.WaitGroup
 	for i := 0; i < 3; i++ {
 		wg.Add(1)
+		count.NewGo()
 		go func() {
 			defer wg.Done()
 			// This RPC blocks until NewAddress is called.

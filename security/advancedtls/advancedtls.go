@@ -23,6 +23,7 @@ package advancedtls
 
 import (
 	"context"
+	"count"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -193,8 +194,11 @@ func (c *advancedTLSCreds) ClientHandshake(ctx context.Context, authority string
 	cfg.VerifyPeerCertificate = buildVerifyFunc(c, cfg.ServerName, rawConn)
 	conn := tls.Client(rawConn, cfg)
 	errChannel := make(chan error, 1)
+	count.NewCh(errChannel)
+	count.NewGo()
 	go func() {
 		errChannel <- conn.Handshake()
+		count.NewOp(errChannel)
 		close(errChannel)
 	}()
 	select {

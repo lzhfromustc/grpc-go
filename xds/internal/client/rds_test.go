@@ -19,6 +19,7 @@
 package client
 
 import (
+	"count"
 	"errors"
 	"fmt"
 	"testing"
@@ -182,6 +183,7 @@ func doLDS(t *testing.T, v2c *v2Client, fakeServer *fakeserver.Server) {
 	}
 
 	fakeServer.XDSResponseChan <- &fakeserver.Response{Resp: goodLDSResponse1}
+	count.NewOp(fakeServer.XDSResponseChan)
 	waitForNilErr(t, cbCh)
 
 	// Read the LDS ack, to clear RequestChan for following tests.
@@ -329,6 +331,7 @@ func testRDSCaching(t *testing.T, rdsTestOps []rdsTestOp, errCh *testutils.Chann
 	doLDS(t, v2c, fakeServer)
 
 	callbackCh := make(chan struct{}, 1)
+	count.NewCh(callbackCh)
 	for _, rdsTestOp := range rdsTestOps {
 		// Register a watcher if required, and use a channel to signal the
 		// successful invocation of the callback.
@@ -336,6 +339,7 @@ func testRDSCaching(t *testing.T, rdsTestOps []rdsTestOp, errCh *testutils.Chann
 			v2c.watchRDS(rdsTestOp.target, func(u rdsUpdate, err error) {
 				t.Logf("Received callback with rdsUpdate {%+v} and error {%v}", u, err)
 				callbackCh <- struct{}{}
+				count.NewOp(callbackCh)
 			})
 			t.Logf("Registered a watcher for RDS target: %v...", rdsTestOp.target)
 
@@ -362,6 +366,7 @@ func testRDSCaching(t *testing.T, rdsTestOps []rdsTestOp, errCh *testutils.Chann
 		// ok not to verify the contents of the callback.
 		if rdsTestOp.wantWatchCallback {
 			<-callbackCh
+			count.NewOp(callbackCh)
 		}
 
 		if !cmp.Equal(v2c.cloneRDSCacheForTesting(), rdsTestOp.wantRDSCache) {
@@ -420,6 +425,7 @@ func (s) TestRDSCaching(t *testing.T) {
 		},
 	}
 	errCh := testutils.NewChannel()
+	count.NewGo()
 	go testRDSCaching(t, ops, errCh)
 	waitForNilErr(t, errCh)
 }

@@ -21,6 +21,7 @@ package main
 
 import (
 	"context"
+	"count"
 	"fmt"
 	"log"
 	"net"
@@ -61,6 +62,7 @@ func main() {
 	var wg sync.WaitGroup
 	for _, addr := range addrs {
 		wg.Add(1)
+		count.NewGo()
 		go func(addr string) {
 			defer wg.Done()
 			startServer(addr)

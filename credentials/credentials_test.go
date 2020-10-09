@@ -20,6 +20,7 @@ package credentials
 
 import (
 	"context"
+	"count"
 	"crypto/tls"
 	"net"
 	"reflect"
@@ -167,6 +168,7 @@ func (s) TestClientHandshakeReturnsAuthInfo(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			done := make(chan AuthInfo, 1)
+			count.NewCh(done)
 			lis := launchServerOnListenAddress(t, tlsServerHandshake, done, tc.address)
 			defer lis.Close()
 			lisAddr := lis.Addr().String()
@@ -185,6 +187,7 @@ func (s) TestClientHandshakeReturnsAuthInfo(t *testing.T) {
 
 func (s) TestServerHandshakeReturnsAuthInfo(t *testing.T) {
 	done := make(chan AuthInfo, 1)
+	count.NewCh(done)
 	lis := launchServer(t, gRPCServerHandshake, done)
 	defer lis.Close()
 	clientAuthInfo := clientHandle(t, tlsClientHandshake, lis.Addr().String())
@@ -200,6 +203,7 @@ func (s) TestServerHandshakeReturnsAuthInfo(t *testing.T) {
 
 func (s) TestServerAndClientHandshake(t *testing.T) {
 	done := make(chan AuthInfo, 1)
+	count.NewCh(done)
 	lis := launchServer(t, gRPCServerHandshake, done)
 	defer lis.Close()
 	clientAuthInfo := clientHandle(t, gRPCClientHandshake, lis.Addr().String())
@@ -246,6 +250,7 @@ func launchServerOnListenAddress(t *testing.T, hs serverHandshake, done chan Aut
 		}
 		t.Fatalf("Failed to listen: %v", err)
 	}
+	count.NewGo()
 	go serverHandle(t, hs, done, lis)
 	return lis
 }
@@ -266,6 +271,7 @@ func serverHandle(t *testing.T, hs serverHandshake, done chan AuthInfo, lis net.
 		return
 	}
 	done <- serverAuthInfo
+	count.NewOp(done)
 }
 
 func clientHandle(t *testing.T, hs func(net.Conn, string) (AuthInfo, error), lisAddr string) AuthInfo {

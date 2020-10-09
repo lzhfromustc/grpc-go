@@ -22,6 +22,7 @@ package dns
 
 import (
 	"context"
+	"count"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -139,6 +140,7 @@ func (b *dnsBuilder) Build(target resolver.Target, cc resolver.ClientConn, opts 
 	}
 
 	d.wg.Add(1)
+	count.NewGo()
 	go d.watcher()
 	d.ResolveNow(resolver.ResolveNowOptions{})
 	return d, nil

@@ -20,6 +20,7 @@ package naming
 
 import (
 	"context"
+	"count"
 	"fmt"
 	"net"
 	"reflect"
@@ -247,6 +248,7 @@ func testResolver(t *testing.T, freq time.Duration, slp time.Duration) {
 		}
 		var wg sync.WaitGroup
 		wg.Add(1)
+		count.NewGo()
 		go func() {
 			defer wg.Done()
 			for {
@@ -316,6 +318,7 @@ func (s) TestIPWatcher(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		count := 0
+		count.NewGo()
 		go func() {
 			defer wg.Done()
 			for {

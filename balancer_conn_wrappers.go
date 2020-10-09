@@ -19,6 +19,7 @@
 package grpc
 
 import (
+	"count"
 	"fmt"
 	"sync"
 
@@ -57,6 +58,7 @@ func newCCBalancerWrapper(cc *ClientConn, b balancer.Builder, bopts balancer.Bui
 		done:     grpcsync.NewEvent(),
 		subConns: make(map[*acBalancerWrapper]struct{}),
 	}
+	count.NewGo()
 	go ccb.watcher()
 	ccb.balancer = b.Build(ccb, bopts)
 	return ccb

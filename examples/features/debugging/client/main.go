@@ -21,6 +21,7 @@ package main
 
 import (
 	"context"
+	"count"
 	"log"
 	"net"
 	"os"
@@ -47,6 +48,7 @@ func main() {
 	defer lis.Close()
 	s := grpc.NewServer()
 	service.RegisterChannelzServiceToServer(s)
+	count.NewGo()
 	go s.Serve(lis)
 	defer s.Stop()
 

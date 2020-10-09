@@ -19,6 +19,7 @@
 package client
 
 import (
+	"count"
 	"errors"
 	"fmt"
 	"testing"
@@ -153,12 +154,16 @@ func (s) TestWatchService(t *testing.T) {
 		t.Fatalf("Timeout expired when expecting an LDS request")
 	}
 	fakeServer.XDSResponseChan <- &fakeserver.Response{Resp: goodLDSResponse1}
+	count.
 
-	// Make the fakeServer send RDS response.
+		// Make the fakeServer send RDS response.
+		NewOp(fakeServer.XDSResponseChan)
+
 	if _, err := fakeServer.XDSRequestChan.Receive(); err != nil {
 		t.Fatalf("Timeout expired when expecting an RDS request")
 	}
 	fakeServer.XDSResponseChan <- &fakeserver.Response{Resp: goodRDSResponse1}
+	count.NewOp(fakeServer.XDSResponseChan)
 	waitForNilErr(t, callbackCh)
 }
 
@@ -250,12 +255,16 @@ func (s) TestWatchServiceEmptyRDS(t *testing.T) {
 		t.Fatalf("Timeout expired when expecting an LDS request")
 	}
 	fakeServer.XDSResponseChan <- &fakeserver.Response{Resp: goodLDSResponse1}
+	count.
 
-	// Make the fakeServer send an empty RDS response.
+		// Make the fakeServer send an empty RDS response.
+		NewOp(fakeServer.XDSResponseChan)
+
 	if _, err := fakeServer.XDSRequestChan.Receive(); err != nil {
 		t.Fatalf("Timeout expired when expecting an RDS request")
 	}
 	fakeServer.XDSResponseChan <- &fakeserver.Response{Resp: noVirtualHostsInRDSResponse}
+	count.NewOp(fakeServer.XDSResponseChan)
 	waitForNilErr(t, callbackCh)
 }
 
@@ -288,12 +297,14 @@ func (s) TestWatchServiceWithClientClose(t *testing.T) {
 		t.Fatalf("Timeout expired when expecting an LDS request")
 	}
 	fakeServer.XDSResponseChan <- &fakeserver.Response{Resp: goodLDSResponse1}
+	count.NewOp(fakeServer.XDSResponseChan)
 
 	xdsClient.Close()
 	t.Log("Closing the xdsClient...")
 
 	// Push an RDS response from the fakeserver
 	fakeServer.XDSResponseChan <- &fakeserver.Response{Resp: goodRDSResponse1}
+	count.NewOp(fakeServer.XDSResponseChan)
 	if cbErr, err := callbackCh.Receive(); err != testutils.ErrRecvTimeout {
 		t.Fatal(cbErr)
 	}

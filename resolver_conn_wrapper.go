@@ -19,6 +19,7 @@
 package grpc
 
 import (
+	"count"
 	"fmt"
 	"strings"
 	"sync"
@@ -111,7 +112,9 @@ func (ccr *ccResolverWrapper) poll(err error) {
 		return
 	}
 	p := make(chan struct{})
+	count.NewCh(p)
 	ccr.polling = p
+	count.NewGo()
 	go func() {
 		for i := 0; ; i++ {
 			ccr.resolveNow(resolver.ResolveNowOptions{})

@@ -20,6 +20,7 @@ package proto
 
 import (
 	"bytes"
+	"count"
 	"sync"
 	"testing"
 
@@ -79,6 +80,7 @@ func (s) TestConcurrentUsage(t *testing.T) {
 
 	for i := 0; i < numGoRoutines; i++ {
 		wg.Add(1)
+		count.NewGo()
 		go func() {
 			defer wg.Done()
 			for k := 0; k < numMarshUnmarsh; k++ {

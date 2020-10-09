@@ -20,6 +20,7 @@ package stats_test
 
 import (
 	"context"
+	"count"
 	"fmt"
 	"io"
 	"net"
@@ -221,6 +222,7 @@ func (te *test) startServer(ts testpb.TestServiceServer) {
 	if te.testServer != nil {
 		testpb.RegisterTestServiceServer(s, te.testServer)
 	}
+	count.NewGo()
 
 	go s.Serve(lis)
 	te.srvAddr = lis.Addr().String()

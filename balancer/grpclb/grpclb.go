@@ -26,6 +26,7 @@ package grpclb
 
 import (
 	"context"
+	"count"
 	"errors"
 	"sync"
 	"time"
@@ -450,7 +451,10 @@ func (lb *lbBalancer) UpdateClientConnState(ccs balancer.ClientConnState) error 
 		// First time receiving resolved addresses, create a cc to remote
 		// balancers.
 		lb.newRemoteBalancerCCWrapper()
-		// Start the fallback goroutine.
+		count.
+			// Start the fallback goroutine.
+			NewGo()
+
 		go lb.fallbackToBackendsAfter(lb.fallbackTimeout)
 	}
 

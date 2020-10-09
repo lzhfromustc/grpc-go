@@ -40,6 +40,7 @@ package main
 
 import (
 	"context"
+	"count"
 	"flag"
 	"fmt"
 	"os"
@@ -139,6 +140,7 @@ func buildConnections(ctx context.Context) []*grpc.ClientConn {
 func runWithConn(cc *grpc.ClientConn, req *testpb.SimpleRequest, warmDeadline, endDeadline time.Time) {
 	for i := 0; i < *numRPC; i++ {
 		wg.Add(1)
+		count.NewGo()
 		go func() {
 			defer wg.Done()
 			caller := makeCaller(cc, req)

@@ -26,6 +26,7 @@ package transport
 import (
 	"bytes"
 	"context"
+	"count"
 	"errors"
 	"fmt"
 	"io"
@@ -339,6 +340,8 @@ func (ht *serverHandlerTransport) HandleStreams(startStream func(*Stream), trace
 
 	// requestOver is closed when the status has been written via WriteStatus.
 	requestOver := make(chan struct{})
+	count.NewCh(requestOver)
+	count.NewGo()
 	go func() {
 		select {
 		case <-requestOver:
@@ -385,6 +388,8 @@ func (ht *serverHandlerTransport) HandleStreams(startStream func(*Stream), trace
 
 	// readerDone is closed when the Body.Read-ing goroutine exits.
 	readerDone := make(chan struct{})
+	count.NewCh(readerDone)
+	count.NewGo()
 	go func() {
 		defer close(readerDone)
 
@@ -418,6 +423,7 @@ func (ht *serverHandlerTransport) HandleStreams(startStream func(*Stream), trace
 	// Wait for reading goroutine to finish.
 	req.Body.Close()
 	<-readerDone
+	count.NewOp(readerDone)
 }
 
 func (ht *serverHandlerTransport) runStream() {

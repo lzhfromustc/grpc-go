@@ -23,6 +23,7 @@ package grpc
 import (
 	"bufio"
 	"context"
+	"count"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -85,7 +86,9 @@ func (p *proxyServer) run() {
 	resp := http.Response{StatusCode: http.StatusOK, Proto: "HTTP/1.0"}
 	resp.Write(p.in)
 	p.out = out
+	count.NewGo()
 	go io.Copy(p.in, p.out)
+	count.NewGo()
 	go io.Copy(p.out, p.in)
 }
 
@@ -109,6 +112,7 @@ func testHTTPConnect(t *testing.T, proxyURLModify func(*url.URL) *url.URL, proxy
 		lis:          plis,
 		requestCheck: proxyReqCheck,
 	}
+	count.NewGo()
 	go p.run()
 	defer p.stop()
 
@@ -120,15 +124,19 @@ func testHTTPConnect(t *testing.T, proxyURLModify func(*url.URL) *url.URL, proxy
 	msg := []byte{4, 3, 5, 2}
 	recvBuf := make([]byte, len(msg))
 	done := make(chan error)
+	count.NewCh(done)
+	count.NewGo()
 	go func() {
 		in, err := blis.Accept()
 		if err != nil {
 			done <- err
+			count.NewOp(done)
 			return
 		}
 		defer in.Close()
 		in.Read(recvBuf)
 		done <- nil
+		count.NewOp(done)
 	}()
 
 	// Overwrite the function in the test and restore them in defer.

@@ -20,6 +20,7 @@ package advancedtls
 
 import (
 	"context"
+	"count"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
@@ -430,6 +431,7 @@ func TestClientServerHandshake(t *testing.T) {
 		test := test
 		t.Run(test.desc, func(t *testing.T) {
 			done := make(chan credentials.AuthInfo, 1)
+			count.NewCh(done)
 			lis, err := net.Listen("tcp", "localhost:0")
 			if err != nil {
 				t.Fatalf("Failed to listen: %v", err)
@@ -444,6 +446,7 @@ func TestClientServerHandshake(t *testing.T) {
 				},
 				RequireClientCert: test.serverMutualTLS,
 			}
+			count.NewGo()
 			go func(done chan credentials.AuthInfo, lis net.Listener, serverOptions *ServerOptions) {
 				serverRawConn, err := lis.Accept()
 				if err != nil {
@@ -463,6 +466,7 @@ func TestClientServerHandshake(t *testing.T) {
 					return
 				}
 				done <- serverAuthInfo
+				count.NewOp(done)
 			}(done, lis, serverOptions)
 			defer lis.Close()
 			// Start a client using ClientOptions and connects to the server.

@@ -19,6 +19,7 @@
 package leakcheck
 
 import (
+	"count"
 	"fmt"
 	"strings"
 	"testing"
@@ -38,6 +39,7 @@ func (e *testErrorfer) Errorf(format string, args ...interface{}) {
 func TestCheck(t *testing.T) {
 	const leakCount = 3
 	for i := 0; i < leakCount; i++ {
+		count.NewGo()
 		go func() { time.Sleep(2 * time.Second) }()
 	}
 	if ig := interestingGoroutines(); len(ig) == 0 {
@@ -60,8 +62,10 @@ func TestCheckRegisterIgnore(t *testing.T) {
 	RegisterIgnoreGoroutine("ignoredTestingLeak")
 	const leakCount = 3
 	for i := 0; i < leakCount; i++ {
+		count.NewGo()
 		go func() { time.Sleep(2 * time.Second) }()
 	}
+	count.NewGo()
 	go func() { ignoredTestingLeak(3 * time.Second) }()
 	if ig := interestingGoroutines(); len(ig) == 0 {
 		t.Error("blah")

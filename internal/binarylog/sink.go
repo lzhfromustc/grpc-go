@@ -20,6 +20,7 @@ package binarylog
 
 import (
 	"bufio"
+	"count"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -121,6 +122,7 @@ const (
 
 func (fs *bufWriteCloserSink) startFlushGoroutine() {
 	fs.writeTicker = time.NewTicker(bufFlushDuration)
+	count.NewGo()
 	go func() {
 		for range fs.writeTicker.C {
 			fs.mu.Lock()

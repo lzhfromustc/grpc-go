@@ -20,6 +20,7 @@ package dns
 
 import (
 	"context"
+	"count"
 	"errors"
 	"fmt"
 	"net"
@@ -92,6 +93,7 @@ func (t *testClientConn) ParseServiceConfig(s string) *serviceconfig.ParseResult
 
 func (t *testClientConn) ReportError(err error) {
 	t.errChan <- err
+	count.NewOp(t.errChan)
 }
 
 type testResolver struct {
@@ -104,6 +106,7 @@ type testResolver struct {
 func (tr *testResolver) LookupHost(ctx context.Context, host string) ([]string, error) {
 	if tr.ch != nil {
 		tr.ch <- struct{}{}
+		count.NewOp(tr.ch)
 	}
 	return hostLookup(host)
 }
@@ -1200,11 +1203,14 @@ func TestCustomAuthority(t *testing.T) {
 
 	for _, a := range tests {
 		errChan := make(chan error, 1)
+		count.NewCh(errChan)
 		customAuthorityDialler = func(authority string) func(ctx context.Context, network, address string) (net.Conn, error) {
 			if authority != a.authorityWant {
 				errChan <- fmt.Errorf("wrong custom authority passed to resolver. input: %s expected: %s actual: %s", a.authority, a.authorityWant, authority)
+				count.NewOp(errChan)
 			} else {
 				errChan <- nil
+				count.NewOp(errChan)
 			}
 			return func(ctx context.Context, network, address string) (net.Conn, error) {
 				return nil, errors.New("no need to dial")
@@ -1278,13 +1284,18 @@ func TestRateLimitedResolve(t *testing.T) {
 	// of the first iteration of the for loop in watcher() because we call
 	// ResolveNow in Build.
 	<-tr.ch
+	count.
 
-	// Here we start a couple of goroutines. One repeatedly calls ResolveNow()
-	// until asked to stop, and the other waits for two resolution requests to be
-	// made to our testResolver and stops the former. We measure the start and
-	// end times, and expect the duration elapsed to be in the interval
-	// {wantCalls*dnsResRate, wantCalls*dnsResRate}
+		// Here we start a couple of goroutines. One repeatedly calls ResolveNow()
+		// until asked to stop, and the other waits for two resolution requests to be
+		// made to our testResolver and stops the former. We measure the start and
+		// end times, and expect the duration elapsed to be in the interval
+		// {wantCalls*dnsResRate, wantCalls*dnsResRate}
+		NewOp(tr.ch)
+
 	done := make(chan struct{})
+	count.NewCh(done)
+	count.NewGo()
 	go func() {
 		for {
 			select {

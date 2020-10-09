@@ -21,6 +21,7 @@ package transport
 import (
 	"bytes"
 	"context"
+	"count"
 	"errors"
 	"fmt"
 	"io"
@@ -210,6 +211,7 @@ func newHTTP2Server(conn net.Conn, config *ServerConfig) (_ ServerTransport, err
 		kep.MinTime = defaultKeepalivePolicyMinTime
 	}
 	done := make(chan struct{})
+	count.NewCh(done)
 	t := &http2Server{
 		ctx:               context.Background(),
 		done:              done,
@@ -284,6 +286,7 @@ func newHTTP2Server(conn net.Conn, config *ServerConfig) (_ ServerTransport, err
 		return nil, connectionErrorf(false, nil, "transport: http2Server.HandleStreams saw invalid preface type %T from client", frame)
 	}
 	t.handleSettings(sf)
+	count.NewGo()
 
 	go func() {
 		t.loopy = newLoopyWriter(serverSide, t.framer, t.controlBuf, t.bdpEst)
@@ -294,6 +297,7 @@ func newHTTP2Server(conn net.Conn, config *ServerConfig) (_ ServerTransport, err
 		t.conn.Close()
 		close(t.writerDone)
 	}()
+	count.NewGo()
 	go t.keepalive()
 	return t, nil
 }
@@ -1131,6 +1135,7 @@ func (t *http2Server) drain(code http2.ErrCode, debugData []byte) {
 		return
 	}
 	t.drainChan = make(chan struct{})
+	count.NewCh(t.drainChan)
 	t.controlBuf.put(&goAway{code: code, debugData: debugData, headsUp: true})
 }
 
@@ -1177,6 +1182,7 @@ func (t *http2Server) outgoingGoAwayHandler(g *goAway) (bool, error) {
 	if err := t.framer.fr.WritePing(false, goAwayPing.data); err != nil {
 		return false, err
 	}
+	count.NewGo()
 	go func() {
 		timer := time.NewTimer(time.Minute)
 		defer timer.Stop()
@@ -1227,6 +1233,7 @@ func (t *http2Server) IncrMsgRecv() {
 
 func (t *http2Server) getOutFlowWindow() int64 {
 	resp := make(chan uint32, 1)
+	count.NewCh(resp)
 	timer := time.NewTimer(time.Second)
 	defer timer.Stop()
 	t.controlBuf.put(&outFlowControlSizeRequest{resp})

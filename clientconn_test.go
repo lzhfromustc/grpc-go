@@ -20,6 +20,7 @@ package grpc
 
 import (
 	"context"
+	"count"
 	"errors"
 	"fmt"
 	"math"
@@ -59,8 +60,13 @@ func (s) TestDialWithTimeout(t *testing.T) {
 	defer lis.Close()
 	lisAddr := resolver.Address{Addr: lis.Addr().String()}
 	lisDone := make(chan struct{})
+	count.NewCh(lisDone)
 	dialDone := make(chan struct{})
-	// 1st listener accepts the connection and then does nothing
+	count.
+		// 1st listener accepts the connection and then does nothing
+		NewCh(dialDone)
+	count.NewGo()
+
 	go func() {
 		defer close(lisDone)
 		conn, err := lis.Accept()
@@ -73,7 +79,9 @@ func (s) TestDialWithTimeout(t *testing.T) {
 			t.Errorf("Error while writing settings. Err: %v", err)
 			return
 		}
-		<-dialDone // Close conn only after dial returns.
+		<-dialDone
+		count. // Close conn only after dial returns.
+			NewOp(dialDone)
 	}()
 
 	r, cleanup := manual.GenerateAndRegisterManualResolver()
@@ -101,7 +109,11 @@ func (s) TestDialWithMultipleBackendsNotSendingServerPreface(t *testing.T) {
 	defer lis1.Close()
 	lis1Addr := resolver.Address{Addr: lis1.Addr().String()}
 	lis1Done := make(chan struct{})
-	// 1st listener accepts the connection and immediately closes it.
+	count.
+		// 1st listener accepts the connection and immediately closes it.
+		NewCh(lis1Done)
+	count.NewGo()
+
 	go func() {
 		defer close(lis1Done)
 		conn, err := lis1.Accept()
@@ -118,8 +130,12 @@ func (s) TestDialWithMultipleBackendsNotSendingServerPreface(t *testing.T) {
 	}
 	defer lis2.Close()
 	lis2Done := make(chan struct{})
+	count.NewCh(lis2Done)
 	lis2Addr := resolver.Address{Addr: lis2.Addr().String()}
-	// 2nd listener should get a connection attempt since the first one failed.
+	count.
+		// 2nd listener should get a connection attempt since the first one failed.
+		NewGo()
+
 	go func() {
 		defer close(lis2Done)
 		_, err := lis2.Accept() // Closing the client will clean up this conn.
@@ -157,8 +173,12 @@ func (s) TestDialWaitsForServerSettings(t *testing.T) {
 	}
 	defer lis.Close()
 	done := make(chan struct{})
+	count.NewCh(done)
 	sent := make(chan struct{})
+	count.NewCh(sent)
 	dialDone := make(chan struct{})
+	count.NewCh(dialDone)
+	count.NewGo()
 	go func() { // Launch the server.
 		defer func() {
 			close(done)
@@ -178,7 +198,9 @@ func (s) TestDialWaitsForServerSettings(t *testing.T) {
 			t.Errorf("Error while writing settings. Err: %v", err)
 			return
 		}
-		<-dialDone // Close conn only after dial returns.
+		<-dialDone
+		count. // Close conn only after dial returns.
+			NewOp(dialDone)
 	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -194,6 +216,7 @@ func (s) TestDialWaitsForServerSettings(t *testing.T) {
 		t.Fatalf("Dial returned before server settings were sent")
 	}
 	<-done
+	count.NewOp(done)
 }
 
 func (s) TestDialWaitsForServerSettingsAndFails(t *testing.T) {
@@ -202,7 +225,9 @@ func (s) TestDialWaitsForServerSettingsAndFails(t *testing.T) {
 		t.Fatalf("Error while listening. Err: %v", err)
 	}
 	done := make(chan struct{})
+	count.NewCh(done)
 	numConns := 0
+	count.NewGo()
 	go func() { // Launch the server.
 		defer func() {
 			close(done)
@@ -233,6 +258,7 @@ func (s) TestDialWaitsForServerSettingsAndFails(t *testing.T) {
 		t.Fatalf("DialContext(_) = %v; want context.DeadlineExceeded", err)
 	}
 	<-done
+	count.NewOp(done)
 	if numConns < 2 {
 		t.Fatalf("dial attempts: %v; want > 1", numConns)
 	}
@@ -260,7 +286,10 @@ func (s) TestCloseConnectionWhenServerPrefaceNotReceived(t *testing.T) {
 		}
 	}()
 	done := make(chan struct{})
+	count.NewCh(done)
 	accepted := make(chan struct{})
+	count.NewCh(accepted)
+	count.NewGo()
 	go func() { // Launch the server.
 		defer close(done)
 		conn1, err := lis.Accept()
@@ -312,6 +341,7 @@ func (s) TestCloseConnectionWhenServerPrefaceNotReceived(t *testing.T) {
 	atomic.StoreUint32(&over, 1)
 	client.Close()
 	<-done
+	count.NewOp(done)
 }
 
 func (s) TestBackoffWhenNoServerPrefaceReceived(t *testing.T) {
@@ -321,6 +351,8 @@ func (s) TestBackoffWhenNoServerPrefaceReceived(t *testing.T) {
 	}
 	defer lis.Close()
 	done := make(chan struct{})
+	count.NewCh(done)
+	count.NewGo()
 	go func() { // Launch the server.
 		defer func() {
 			close(done)
@@ -357,6 +389,7 @@ func (s) TestBackoffWhenNoServerPrefaceReceived(t *testing.T) {
 	}
 	defer client.Close()
 	<-done
+	count.NewOp(done)
 
 }
 
@@ -510,9 +543,14 @@ func (s) TestDial_OneBackoffPerRetryGroup(t *testing.T) {
 	defer lis2.Close()
 
 	server1Done := make(chan struct{})
+	count.NewCh(server1Done)
 	server2Done := make(chan struct{})
+	count.
 
-	// Launch server 1.
+		// Launch server 1.
+		NewCh(server2Done)
+	count.NewGo()
+
 	go func() {
 		conn, err := lis1.Accept()
 		if err != nil {
@@ -523,7 +561,10 @@ func (s) TestDial_OneBackoffPerRetryGroup(t *testing.T) {
 		conn.Close()
 		close(server1Done)
 	}()
-	// Launch server 2.
+	count.
+		// Launch server 2.
+		NewGo()
+
 	go func() {
 		conn, err := lis2.Accept()
 		if err != nil {
@@ -620,15 +661,20 @@ func (b *blockingBalancer) Close() error {
 func (s) TestDialWithBlockingBalancer(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	dialDone := make(chan struct{})
+	count.NewCh(dialDone)
+	count.NewGo()
 	go func() {
 		DialContext(ctx, "Non-Existent.Server:80", WithBlock(), WithInsecure(), WithBalancer(newBlockingBalancer()))
 		close(dialDone)
 	}()
 	cancel()
 	<-dialDone
+	count.
+
+		// securePerRPCCredentials always requires transport security.
+		NewOp(dialDone)
 }
 
-// securePerRPCCredentials always requires transport security.
 type securePerRPCCredentials struct{}
 
 func (c securePerRPCCredentials) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
@@ -733,6 +779,7 @@ func newEmptyBalancer() Balancer {
 }
 func (b *emptyBalancer) Start(_ string, _ BalancerConfig) error {
 	b.ch <- nil
+	count.NewOp(b.ch)
 	return nil
 }
 func (b *emptyBalancer) Up(_ Address) func(error) {
@@ -753,6 +800,8 @@ func (s) TestNonblockingDialWithEmptyBalancer(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	dialDone := make(chan error)
+	count.NewCh(dialDone)
+	count.NewGo()
 	go func() {
 		dialDone <- func() error {
 			conn, err := DialContext(ctx, "Non-Existent.Server:80", WithInsecure(), WithBalancer(newEmptyBalancer()))
@@ -761,6 +810,8 @@ func (s) TestNonblockingDialWithEmptyBalancer(t *testing.T) {
 			}
 			return conn.Close()
 		}()
+		count.NewOp(dialDone)
+
 	}()
 	if err := <-dialDone; err != nil {
 		t.Fatalf("unexpected error dialing connection: %s", err)
@@ -793,8 +844,12 @@ func (s) TestResolverServiceConfigWhileClosingNotPanic(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to dial: %v", err)
 		}
-		// Send a new service config while closing the ClientConn.
+		count.
+			// Send a new service config while closing the ClientConn.
+			NewGo()
+
 		go cc.Close()
+		count.NewGo()
 		go r.UpdateState(resolver.State{ServiceConfig: parseCfg(r, `{"loadBalancingPolicy": "round_robin"}`)}) // This should not panic.
 	}
 }
@@ -822,6 +877,8 @@ func (s) TestClientUpdatesParamsAfterGoAway(t *testing.T) {
 	}
 	defer lis.Close()
 	connected := make(chan struct{})
+	count.NewCh(connected)
+	count.NewGo()
 	go func() {
 		conn, err := lis.Accept()
 		if err != nil {
@@ -830,8 +887,11 @@ func (s) TestClientUpdatesParamsAfterGoAway(t *testing.T) {
 		}
 		defer conn.Close()
 		f := http2.NewFramer(conn, conn)
-		// Start a goroutine to read from the conn to prevent the client from
-		// blocking after it writes its preface.
+		count.
+			// Start a goroutine to read from the conn to prevent the client from
+			// blocking after it writes its preface.
+			NewGo()
+
 		go func() {
 			for {
 				if _, err := f.ReadFrame(); err != nil {
@@ -844,6 +904,7 @@ func (s) TestClientUpdatesParamsAfterGoAway(t *testing.T) {
 			return
 		}
 		<-connected
+		count.NewOp(connected)
 		if err := f.WriteGoAway(0, http2.ErrCodeEnhanceYourCalm, []byte("too_many_pings")); err != nil {
 			t.Errorf("error writing GOAWAY: %v", err)
 			return
@@ -926,6 +987,7 @@ func (b backoffForever) Backoff(int) time.Duration { return time.Duration(math.M
 
 func (s) TestResetConnectBackoff(t *testing.T) {
 	dials := make(chan struct{})
+	count.NewCh(dials)
 	defer func() { // If we fail, let the http2client break out of dialing.
 		select {
 		case <-dials:
@@ -934,6 +996,7 @@ func (s) TestResetConnectBackoff(t *testing.T) {
 	}()
 	dialer := func(string, time.Duration) (net.Conn, error) {
 		dials <- struct{}{}
+		count.NewOp(dials)
 		return nil, errors.New("failed to fake dial")
 	}
 	cc, err := Dial("any", WithInsecure(), WithDialer(dialer), withBackoff(backoffForever{}))
@@ -964,14 +1027,17 @@ func (s) TestResetConnectBackoff(t *testing.T) {
 
 func (s) TestBackoffCancel(t *testing.T) {
 	dialStrCh := make(chan string)
+	count.NewCh(dialStrCh)
 	cc, err := Dial("any", WithInsecure(), WithDialer(func(t string, _ time.Duration) (net.Conn, error) {
 		dialStrCh <- t
+		count.NewOp(dialStrCh)
 		return nil, fmt.Errorf("test dialer, always error")
 	}))
 	if err != nil {
 		t.Fatalf("Failed to create ClientConn: %v", err)
 	}
 	<-dialStrCh
+	count.NewOp(dialStrCh)
 	cc.Close()
 	// Should not leak. May need -count 5000 to exercise.
 }
@@ -998,13 +1064,22 @@ func (s) TestUpdateAddresses_RetryFromFirstAddr(t *testing.T) {
 	defer lis3.Close()
 
 	closeServer2 := make(chan struct{})
+	count.NewCh(closeServer2)
 	server1ContactedFirstTime := make(chan struct{})
+	count.NewCh(server1ContactedFirstTime)
 	server1ContactedSecondTime := make(chan struct{})
+	count.NewCh(server1ContactedSecondTime)
 	server2ContactedFirstTime := make(chan struct{})
+	count.NewCh(server2ContactedFirstTime)
 	server2ContactedSecondTime := make(chan struct{})
+	count.NewCh(server2ContactedSecondTime)
 	server3Contacted := make(chan struct{})
+	count.
 
-	// Launch server 1.
+		// Launch server 1.
+		NewCh(server3Contacted)
+	count.NewGo()
+
 	go func() {
 		// First, let's allow the initial connection to go READY. We need to do
 		// this because tryUpdateAddrs only works after there's some non-nil
@@ -1014,6 +1089,7 @@ func (s) TestUpdateAddresses_RetryFromFirstAddr(t *testing.T) {
 			t.Error(err)
 			return
 		}
+		count.NewGo()
 		go keepReading(conn1)
 
 		framer := http2.NewFramer(conn1, conn1)
@@ -1050,7 +1126,10 @@ func (s) TestUpdateAddresses_RetryFromFirstAddr(t *testing.T) {
 		lis1.Accept()
 		close(server1ContactedSecondTime)
 	}()
-	// Launch server 2.
+	count.
+		// Launch server 2.
+		NewGo()
+
 	go func() {
 		// Accept and then hang waiting for the test call tryUpdateAddrs and
 		// then signal to this server to close. After this server closes, it
@@ -1064,13 +1143,17 @@ func (s) TestUpdateAddresses_RetryFromFirstAddr(t *testing.T) {
 
 		close(server2ContactedFirstTime)
 		<-closeServer2
+		count.NewOp(closeServer2)
 		conn.Close()
 
 		// After tryUpdateAddrs, it should NOT try server2.
 		lis2.Accept()
 		close(server2ContactedSecondTime)
 	}()
-	// Launch server 3.
+	count.
+		// Launch server 3.
+		NewGo()
+
 	go func() {
 		// After tryUpdateAddrs, it should NOT try server3. (or any other time)
 		lis3.Accept()

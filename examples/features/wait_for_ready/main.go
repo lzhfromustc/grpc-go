@@ -21,6 +21,7 @@ package main
 
 import (
 	"context"
+	"count"
 	"fmt"
 	"log"
 	"net"
@@ -68,8 +69,11 @@ func main() {
 
 	var wg sync.WaitGroup
 	wg.Add(3)
+	count.
 
-	// "Wait for ready" is not enabled, returns error with code "Unavailable".
+		// "Wait for ready" is not enabled, returns error with code "Unavailable".
+		NewGo()
+
 	go func() {
 		defer wg.Done()
 
@@ -81,8 +85,11 @@ func main() {
 		got := status.Code(err)
 		fmt.Printf("[1] wanted = %v, got = %v\n", codes.Unavailable, got)
 	}()
+	count.
 
-	// "Wait for ready" is enabled, returns nil error.
+		// "Wait for ready" is enabled, returns nil error.
+		NewGo()
+
 	go func() {
 		defer wg.Done()
 
@@ -94,9 +101,12 @@ func main() {
 		got := status.Code(err)
 		fmt.Printf("[2] wanted = %v, got = %v\n", codes.OK, got)
 	}()
+	count.
 
-	// "Wait for ready" is enabled but exceeds the deadline before server starts listening,
-	// returns error with code "DeadlineExceeded".
+		// "Wait for ready" is enabled but exceeds the deadline before server starts listening,
+		// returns error with code "DeadlineExceeded".
+		NewGo()
+
 	go func() {
 		defer wg.Done()
 
@@ -110,6 +120,7 @@ func main() {
 	}()
 
 	time.Sleep(2 * time.Second)
+	count.NewGo()
 	go serve()
 
 	wg.Wait()

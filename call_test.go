@@ -20,6 +20,7 @@ package grpc
 
 import (
 	"context"
+	"count"
 	"fmt"
 	"io"
 	"math"
@@ -139,17 +140,20 @@ func (s *server) start(t *testing.T, port int, maxStreams uint32) {
 	}
 	if err != nil {
 		s.startedErr <- fmt.Errorf("failed to listen: %v", err)
+		count.NewOp(s.startedErr)
 		return
 	}
 	s.addr = s.lis.Addr().String()
 	_, p, err := net.SplitHostPort(s.addr)
 	if err != nil {
 		s.startedErr <- fmt.Errorf("failed to parse listener address: %v", err)
+		count.NewOp(s.startedErr)
 		return
 	}
 	s.port = p
 	s.conns = make(map[transport.ServerTransport]bool)
 	s.startedErr <- nil
+	count.NewOp(s.startedErr)
 	for {
 		conn, err := s.lis.Accept()
 		if err != nil {
@@ -174,7 +178,9 @@ func (s *server) start(t *testing.T, port int, maxStreams uint32) {
 			port: s.port,
 			t:    st,
 		}
+		count.NewGo()
 		go st.HandleStreams(func(s *transport.Stream) {
+			count.NewGo()
 			go h.handleStream(t, s)
 		}, func(ctx context.Context, method string) context.Context {
 			return ctx
@@ -209,6 +215,7 @@ func setUp(t *testing.T, port int, maxStreams uint32) (*server, *ClientConn) {
 
 func setUpWithOptions(t *testing.T, port int, maxStreams uint32, dopts ...DialOption) (*server, *ClientConn) {
 	server := newTestServer()
+	count.NewGo()
 	go server.start(t, port, maxStreams)
 	server.wait(t, 2*time.Second)
 	addr := "localhost:" + server.port

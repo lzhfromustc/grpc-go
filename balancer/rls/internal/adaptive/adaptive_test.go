@@ -19,6 +19,7 @@
 package adaptive
 
 import (
+	"count"
 	"sync"
 	"testing"
 	"time"
@@ -180,6 +181,7 @@ func TestParallel(t *testing.T) {
 	var wg sync.WaitGroup
 	for i := 0; i < numRoutines; i++ {
 		wg.Add(1)
+		count.NewGo()
 		go func(num int) {
 			defer wg.Done()
 

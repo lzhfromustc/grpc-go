@@ -20,6 +20,7 @@ package grpc
 
 import (
 	"context"
+	"count"
 	"net"
 	"sync"
 
@@ -193,6 +194,7 @@ func (rr *roundRobin) watchAddrUpdates() error {
 	default:
 	}
 	rr.addrCh <- open
+	count.NewOp(rr.addrCh)
 	return nil
 }
 
@@ -215,6 +217,8 @@ func (rr *roundRobin) Start(target string, config BalancerConfig) error {
 	}
 	rr.w = w
 	rr.addrCh = make(chan []Address, 1)
+	count.NewCh(rr.addrCh)
+	count.NewGo()
 	go func() {
 		for {
 			if err := rr.watchAddrUpdates(); err != nil {
@@ -309,6 +313,7 @@ func (rr *roundRobin) Get(ctx context.Context, opts BalancerGetOptions) (addr Ad
 	// Wait on rr.waitCh for non-failfast RPCs.
 	if rr.waitCh == nil {
 		ch = make(chan struct{})
+		count.NewCh(ch)
 		rr.waitCh = ch
 	} else {
 		ch = rr.waitCh
@@ -350,6 +355,7 @@ func (rr *roundRobin) Get(ctx context.Context, opts BalancerGetOptions) (addr Ad
 			// The newly added addr got removed by Down() again.
 			if rr.waitCh == nil {
 				ch = make(chan struct{})
+				count.NewCh(ch)
 				rr.waitCh = ch
 			} else {
 				ch = rr.waitCh

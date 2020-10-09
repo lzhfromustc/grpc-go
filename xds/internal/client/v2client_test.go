@@ -19,6 +19,7 @@
 package client
 
 import (
+	"count"
 	"errors"
 	"testing"
 	"time"
@@ -399,8 +400,10 @@ func (s) TestV2ClientBackoffAfterRecvError(t *testing.T) {
 	// Override the v2Client backoff function with this, so that we can verify
 	// that a backoff actually was triggerred.
 	boCh := make(chan int, 1)
+	count.NewCh(boCh)
 	clientBackoff := func(v int) time.Duration {
 		boCh <- v
+		count.NewOp(boCh)
 		return 0
 	}
 
@@ -409,6 +412,7 @@ func (s) TestV2ClientBackoffAfterRecvError(t *testing.T) {
 	t.Log("Started xds v2Client...")
 
 	callbackCh := make(chan struct{})
+	count.NewCh(callbackCh)
 	v2c.watchLDS(goodLDSTarget1, func(u ldsUpdate, err error) {
 		close(callbackCh)
 	})
@@ -418,6 +422,7 @@ func (s) TestV2ClientBackoffAfterRecvError(t *testing.T) {
 	t.Log("FakeServer received request...")
 
 	fakeServer.XDSResponseChan <- &fakeserver.Response{Err: errors.New("RPC error")}
+	count.NewOp(fakeServer.XDSResponseChan)
 	t.Log("Bad LDS response pushed to fakeServer...")
 
 	timer := time.NewTimer(defaultTestTimeout)
@@ -454,6 +459,7 @@ func (s) TestV2ClientRetriesAfterBrokenStream(t *testing.T) {
 	t.Log("FakeServer received request...")
 
 	fakeServer.XDSResponseChan <- &fakeserver.Response{Resp: goodLDSResponse1}
+	count.NewOp(fakeServer.XDSResponseChan)
 	t.Log("Good LDS response pushed to fakeServer...")
 
 	if _, err := callbackCh.Receive(); err != nil {
@@ -466,6 +472,7 @@ func (s) TestV2ClientRetriesAfterBrokenStream(t *testing.T) {
 	}
 
 	fakeServer.XDSResponseChan <- &fakeserver.Response{Err: errors.New("RPC error")}
+	count.NewOp(fakeServer.XDSResponseChan)
 	t.Log("Bad LDS response pushed to fakeServer...")
 
 	val, err := fakeServer.XDSRequestChan.Receive()
@@ -499,6 +506,7 @@ func (s) TestV2ClientCancelWatch(t *testing.T) {
 	t.Log("FakeServer received request...")
 
 	fakeServer.XDSResponseChan <- &fakeserver.Response{Resp: goodLDSResponse1}
+	count.NewOp(fakeServer.XDSResponseChan)
 	t.Log("Good LDS response pushed to fakeServer...")
 
 	if _, err := callbackCh.Receive(); err != nil {
@@ -508,6 +516,7 @@ func (s) TestV2ClientCancelWatch(t *testing.T) {
 	cancelFunc()
 
 	fakeServer.XDSResponseChan <- &fakeserver.Response{Resp: goodLDSResponse1}
+	count.NewOp(fakeServer.XDSResponseChan)
 	t.Log("Another good LDS response pushed to fakeServer...")
 
 	if _, err := callbackCh.Receive(); err != testutils.ErrRecvTimeout {
@@ -571,6 +580,7 @@ func (s) TestV2ClientWatchWithoutStream(t *testing.T) {
 	t.Log("FakeServer received request...")
 
 	fakeServer.XDSResponseChan <- &fakeserver.Response{Resp: goodLDSResponse1}
+	count.NewOp(fakeServer.XDSResponseChan)
 	t.Log("Good LDS response pushed to fakeServer...")
 
 	if v, err := callbackCh.Receive(); err != nil {

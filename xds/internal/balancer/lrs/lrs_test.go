@@ -19,6 +19,7 @@ package lrs
 
 import (
 	"context"
+	"count"
 	"fmt"
 	"io"
 	"net"
@@ -162,6 +163,7 @@ func Test_lrsStore_buildStats_drops(t *testing.T) {
 				for c, count := range ds {
 					for i := 0; i < int(count); i++ {
 						wg.Add(1)
+						count.NewGo()
 						go func(i int, c string) {
 							ls.CallDropped(c)
 							wg.Done()
@@ -314,6 +316,7 @@ func Test_lrsStore_buildStats_rpcCounts(t *testing.T) {
 				for l, count := range counts {
 					for i := 0; i < int(count.success); i++ {
 						wg.Add(1)
+						count.NewGo()
 						go func(l internal.Locality, serverData map[string]float64) {
 							ls.CallStarted(l)
 							ls.CallFinished(l, nil)
@@ -325,6 +328,7 @@ func Test_lrsStore_buildStats_rpcCounts(t *testing.T) {
 					}
 					for i := 0; i < int(count.failure); i++ {
 						wg.Add(1)
+						count.NewGo()
 						go func(l internal.Locality) {
 							ls.CallStarted(l)
 							ls.CallFinished(l, errTest)
@@ -333,6 +337,7 @@ func Test_lrsStore_buildStats_rpcCounts(t *testing.T) {
 					}
 					for i := 0; i < int(count.start-count.success-count.failure); i++ {
 						wg.Add(1)
+						count.NewGo()
 						go func(l internal.Locality) {
 							ls.CallStarted(l)
 							wg.Done()
@@ -426,6 +431,7 @@ func setupServer(t *testing.T, reportingInterval *durationpb.Duration) (addr str
 		rpcs:              make(map[internal.Locality]*rpcCountDataForTest),
 	}
 	lrsgrpc.RegisterLoadReportingServiceServer(svr, lrss)
+	count.NewGo()
 	go svr.Serve(lis)
 	return lis.Addr().String(), lrss, func() {
 		svr.Stop()
@@ -449,6 +455,8 @@ func Test_lrsStore_ReportTo(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	done := make(chan struct{})
+	count.NewCh(done)
+	count.NewGo()
 	go func() {
 		node := &corepb.Node{
 			Metadata: &structpb.Struct{
@@ -480,6 +488,7 @@ func Test_lrsStore_ReportTo(t *testing.T) {
 	}
 	for l, count := range rpcs {
 		for i := 0; i < int(count.succeeded); i++ {
+			count.NewGo()
 			go func(i int, l internal.Locality, count *rpcCountDataForTest) {
 				ls.CallStarted(l)
 				ls.CallFinished(l, nil)
@@ -489,11 +498,13 @@ func Test_lrsStore_ReportTo(t *testing.T) {
 			}(i, l, count)
 		}
 		for i := 0; i < int(count.inProgress); i++ {
+			count.NewGo()
 			go func(i int, l internal.Locality) {
 				ls.CallStarted(l)
 			}(i, l)
 		}
 		for i := 0; i < int(count.errored); i++ {
+			count.NewGo()
 			go func(i int, l internal.Locality) {
 				ls.CallStarted(l)
 				ls.CallFinished(l, errTest)
@@ -504,6 +515,7 @@ func Test_lrsStore_ReportTo(t *testing.T) {
 	time.Sleep(time.Nanosecond * intervalNano * 2)
 	cancel()
 	<-done
+	count.NewOp(done)
 
 	lrss.mu.Lock()
 	defer lrss.mu.Unlock()

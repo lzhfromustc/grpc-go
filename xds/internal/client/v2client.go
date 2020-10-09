@@ -20,6 +20,7 @@ package client
 
 import (
 	"context"
+	"count"
 	"fmt"
 	"sync"
 	"time"
@@ -116,6 +117,7 @@ func newV2Client(cc *grpc.ClientConn, nodeProto *corepb.Node, backoff func(int) 
 		cdsCache:   make(map[string]CDSUpdate),
 	}
 	v2c.ctx, v2c.cancelCtx = context.WithCancel(context.Background())
+	count.NewGo()
 
 	go v2c.run()
 	return v2c
@@ -130,6 +132,7 @@ func (v2c *v2Client) close() {
 // stream failed without receiving a single reply) and runs the sender and
 // receiver routines to send and receive data from the stream respectively.
 func (v2c *v2Client) run() {
+	count.NewGo()
 	go v2c.send()
 	// TODO: start a goroutine monitoring ClientConn's connectivity state, and
 	// report error (and log) when stats is transient failure.
@@ -149,6 +152,7 @@ func (v2c *v2Client) run() {
 			case <-v2c.ctx.Done():
 				if !t.Stop() {
 					<-t.C
+					count.NewOp(t.C)
 				}
 				return
 			}
@@ -168,6 +172,7 @@ func (v2c *v2Client) run() {
 		default:
 		}
 		v2c.streamCh <- stream
+		count.NewOp(v2c.streamCh)
 		if v2c.recv(stream) {
 			retries = 0
 		}

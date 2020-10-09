@@ -20,6 +20,7 @@ package main
 
 import (
 	"context"
+	"count"
 	"flag"
 	"math"
 	"runtime"
@@ -250,14 +251,19 @@ func (bc *benchmarkClient) doCloseLoopUnary(conns []*grpc.ClientConn, rpcCountPe
 			// Create histogram for each goroutine.
 			idx := ic*rpcCountPerConn + j
 			bc.lockingHistograms[idx].histogram = stats.NewHistogram(bc.histogramOptions)
-			// Start goroutine on the created mutex and histogram.
+			count.
+				// Start goroutine on the created mutex and histogram.
+				NewGo()
+
 			go func(idx int) {
 				// TODO: do warm up if necessary.
 				// Now relying on worker client to reserve time to do warm up.
 				// The worker client needs to wait for some time after client is created,
 				// before starting benchmark.
 				done := make(chan bool)
+				count.NewCh(done)
 				for {
+					count.NewGo()
 					go func() {
 						start := time.Now()
 						if err := benchmark.DoUnaryCall(client, reqSize, respSize); err != nil {
@@ -303,7 +309,10 @@ func (bc *benchmarkClient) doCloseLoopStreaming(conns []*grpc.ClientConn, rpcCou
 			// Create histogram for each goroutine.
 			idx := ic*rpcCountPerConn + j
 			bc.lockingHistograms[idx].histogram = stats.NewHistogram(bc.histogramOptions)
-			// Start goroutine on the created mutex and histogram.
+			count.
+				// Start goroutine on the created mutex and histogram.
+				NewGo()
+
 			go func(idx int) {
 				// TODO: do warm up if necessary.
 				// Now relying on worker client to reserve time to do warm up.

@@ -24,6 +24,7 @@ package health
 
 import (
 	"context"
+	"count"
 	"sync"
 
 	"google.golang.org/grpc/codes"
@@ -69,12 +70,15 @@ func (s *Server) Watch(in *healthpb.HealthCheckRequest, stream healthgrpc.Health
 	service := in.Service
 	// update channel is used for getting service status updates.
 	update := make(chan healthpb.HealthCheckResponse_ServingStatus, 1)
+	count.NewCh(update)
 	s.mu.Lock()
 	// Puts the initial status to the channel.
 	if servingStatus, ok := s.statusMap[service]; ok {
 		update <- servingStatus
+		count.NewOp(update)
 	} else {
 		update <- healthpb.HealthCheckResponse_SERVICE_UNKNOWN
+		count.NewOp(update)
 	}
 
 	// Registers the update channel to the correct place in the updates map.
@@ -133,6 +137,7 @@ func (s *Server) setServingStatusLocked(service string, servingStatus healthpb.H
 		}
 		// Puts the most recent update to the channel.
 		update <- servingStatus
+		count.NewOp(update)
 	}
 }
 

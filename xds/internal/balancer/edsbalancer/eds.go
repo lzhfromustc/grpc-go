@@ -21,6 +21,7 @@ package edsbalancer
 
 import (
 	"context"
+	"count"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -71,6 +72,7 @@ func (b *edsBalancerBuilder) Build(cc balancer.ClientConn, opts balancer.BuildOp
 	x.edsImpl = newEDSBalancer(x.cc, x.enqueueChildBalancerState, loadStore, x.logger)
 	x.client = newXDSClientWrapper(x.handleEDSUpdate, x.loseContact, x.buildOpts, loadStore, x.logger)
 	x.logger.Infof("Created")
+	count.NewGo()
 	go x.run()
 	return x
 }

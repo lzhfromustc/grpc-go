@@ -25,6 +25,7 @@ package main
 
 import (
 	"context"
+	"count"
 	"flag"
 	"net"
 	"strconv"
@@ -115,6 +116,7 @@ func maxStreams(tc testpb.TestServiceClient) {
 	var wg sync.WaitGroup
 	for i := 0; i < 15; i++ {
 		wg.Add(1)
+		count.NewGo()
 		go func() {
 			defer wg.Done()
 			interop.DoLargeUnaryCall(tc)

@@ -20,6 +20,7 @@ package rls
 
 import (
 	"context"
+	"count"
 	"time"
 
 	"google.golang.org/grpc"
@@ -67,6 +68,7 @@ type lookupCallback func(target, headerData string, err error)
 // lookup starts a RouteLookup RPC in a separate goroutine and returns the
 // results (and error, if any) in the provided callback.
 func (c *rlsClient) lookup(path string, keyMap map[string]string, cb lookupCallback) {
+	count.NewGo()
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), c.rpcTimeout)
 		resp, err := c.stub.RouteLookup(ctx, &rlspb.RouteLookupRequest{

@@ -19,6 +19,7 @@
 package grpclb
 
 import (
+	"count"
 	"fmt"
 	"sync"
 	"testing"
@@ -243,6 +244,8 @@ func (s) TestLBCache_RemoveTimer_New_Race(t *testing.T) {
 	}
 
 	done := make(chan struct{})
+	count.NewCh(done)
+	count.NewGo()
 
 	go func() {
 		for i := 0; i < 1000; i++ {

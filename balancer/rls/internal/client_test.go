@@ -19,6 +19,7 @@
 package rls
 
 import (
+	"count"
 	"errors"
 	"fmt"
 	"testing"
@@ -65,20 +66,25 @@ func TestLookupFailure(t *testing.T) {
 
 	// We setup the fake server to return an error.
 	server.ResponseChan <- fakeserver.Response{Err: errors.New("rls failure")}
+	count.NewOp(server.ResponseChan)
 
 	rlsClient := newRLSClient(cc, defaultDialTarget, defaultRPCTimeout)
 
 	errCh := make(chan error)
+	count.NewCh(errCh)
 	rlsClient.lookup("", nil, func(target, headerData string, err error) {
 		if err == nil {
 			errCh <- errors.New("rlsClient.lookup() succeeded, should have failed")
+			count.NewOp(errCh)
 			return
 		}
 		if target != "" || headerData != "" {
 			errCh <- fmt.Errorf("rlsClient.lookup() = (%s, %s), should be empty strings", target, headerData)
+			count.NewOp(errCh)
 			return
 		}
 		errCh <- nil
+		count.NewOp(errCh)
 	})
 
 	timer := time.NewTimer(defaultTestTimeout)
@@ -104,12 +110,15 @@ func TestLookupDeadlineExceeded(t *testing.T) {
 	rlsClient := newRLSClient(cc, defaultDialTarget, 100*time.Millisecond)
 
 	errCh := make(chan error)
+	count.NewCh(errCh)
 	rlsClient.lookup("", nil, func(target, headerData string, err error) {
 		if st, ok := status.FromError(err); !ok || st.Code() != codes.DeadlineExceeded {
 			errCh <- fmt.Errorf("rlsClient.lookup() returned error: %v, want %v", err, codes.DeadlineExceeded)
+			count.NewOp(errCh)
 			return
 		}
 		errCh <- nil
+		count.NewOp(errCh)
 	})
 
 	timer := time.NewTimer(defaultTestTimeout)
@@ -149,16 +158,20 @@ func TestLookupSuccess(t *testing.T) {
 	rlsClient := newRLSClient(cc, defaultDialTarget, defaultRPCTimeout)
 
 	errCh := make(chan error)
+	count.NewCh(errCh)
 	rlsClient.lookup(rlsReqPath, rlsReqKeyMap, func(t, hd string, err error) {
 		if err != nil {
 			errCh <- fmt.Errorf("rlsClient.Lookup() failed: %v", err)
+			count.NewOp(errCh)
 			return
 		}
 		if t != rlsRespTarget || hd != rlsHeaderData {
 			errCh <- fmt.Errorf("rlsClient.lookup() = (%s, %s), want (%s, %s)", t, hd, rlsRespTarget, rlsHeaderData)
+			count.NewOp(errCh)
 			return
 		}
 		errCh <- nil
+		count.NewOp(errCh)
 	})
 
 	// Make sure that the fake server received the expected RouteLookupRequest
@@ -168,6 +181,7 @@ func TestLookupSuccess(t *testing.T) {
 	case gotLookupRequest := <-server.RequestChan:
 		if !timer.Stop() {
 			<-timer.C
+			count.NewOp(timer.C)
 		}
 		if diff := cmp.Diff(wantLookupRequest, gotLookupRequest, cmp.Comparer(proto.Equal)); diff != "" {
 			t.Fatalf("RouteLookupRequest diff (-want, +got):\n%s", diff)
@@ -184,6 +198,7 @@ func TestLookupSuccess(t *testing.T) {
 			HeaderData: rlsHeaderData,
 		},
 	}
+	count.NewOp(server.ResponseChan)
 
 	timer = time.NewTimer(defaultTestTimeout)
 	select {

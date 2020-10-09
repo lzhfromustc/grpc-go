@@ -20,6 +20,7 @@ package test
 
 import (
 	"context"
+	"count"
 	"reflect"
 	"testing"
 	"time"
@@ -187,6 +188,8 @@ func testDoneInfo(t *testing.T, e env) {
 	// Stop server and at the same time send RPCs. There are chances that picker
 	// is not updated in time, causing a non-Ready SubConn to be returned.
 	finished := make(chan struct{})
+	count.NewCh(finished)
+	count.NewGo()
 	go func() {
 		for i := 0; i < 20; i++ {
 			tc.UnaryCall(ctx, &testpb.SimpleRequest{})
@@ -195,6 +198,7 @@ func testDoneInfo(t *testing.T, e env) {
 	}()
 	te.srv.Stop()
 	<-finished
+	count.NewOp(finished)
 	if len(b.pickInfos) != len(b.doneInfo) {
 		t.Fatalf("Got %d picks, %d doneInfo, want equal amount", len(b.pickInfos), len(b.doneInfo))
 	}
@@ -289,6 +293,7 @@ func (*testBalancerKeepAddresses) Name() string {
 
 func (b *testBalancerKeepAddresses) HandleResolvedAddrs(addrs []resolver.Address, err error) {
 	b.addrsChan <- addrs
+	count.NewOp(b.addrsChan)
 }
 
 func (testBalancerKeepAddresses) HandleSubConnStateChange(sc balancer.SubConn, s connectivity.State) {

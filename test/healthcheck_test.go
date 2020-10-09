@@ -20,6 +20,7 @@ package test
 
 import (
 	"context"
+	"count"
 	"errors"
 	"fmt"
 	"net"
@@ -110,12 +111,15 @@ func (s *testHealthServer) SetServingStatus(service string, status healthpb.Heal
 	default:
 	}
 	s.update <- struct{}{}
+	count.NewOp(s.update)
 	s.mu.Unlock()
 }
 
 func setupHealthCheckWrapper() (hcEnterChan chan struct{}, hcExitChan chan struct{}, wrapper internal.HealthChecker) {
 	hcEnterChan = make(chan struct{})
+	count.NewCh(hcEnterChan)
 	hcExitChan = make(chan struct{})
+	count.NewCh(hcExitChan)
 	wrapper = func(ctx context.Context, newStream func(string) (interface{}, error), update func(connectivity.State, error), service string) error {
 		close(hcEnterChan)
 		defer close(hcExitChan)
@@ -141,6 +145,7 @@ func setupServer(sc *svrConfig) (s *grpc.Server, lis net.Listener, ts *testHealt
 	}
 	healthgrpc.RegisterHealthServer(s, ts)
 	testpb.RegisterTestServiceServer(s, &testServer{})
+	count.NewGo()
 	go s.Serve(lis)
 	return s, lis, ts, s.Stop, nil
 }
@@ -254,6 +259,7 @@ func (s) TestHealthCheckHealthServerNotRegistered(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to listen due to err: %v", err)
 	}
+	count.NewGo()
 	go s.Serve(lis)
 	defer s.Stop()
 
@@ -353,8 +359,11 @@ func (s) TestHealthCheckWithGoAway(t *testing.T) {
 		t.Fatal("Health check function has exited, which is not expected.")
 	default:
 	}
+	count.
 
-	// server sends GoAway
+		// server sends GoAway
+		NewGo()
+
 	go s.GracefulStop()
 
 	select {

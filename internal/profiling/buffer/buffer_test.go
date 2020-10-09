@@ -21,6 +21,7 @@
 package buffer
 
 import (
+	"count"
 	"fmt"
 	"sync"
 	"testing"
@@ -125,6 +126,7 @@ func (s) TestCircularBufferConcurrent(t *testing.T) {
 		var wg sync.WaitGroup
 		for r := uint32(0); r < 1024; r++ {
 			wg.Add(1)
+			count.NewGo()
 			go func(r uint32) {
 				for n := uint32(0); n < size; n++ {
 					cb.Push(item{R: r, N: n, T: time.Now()})
@@ -174,6 +176,7 @@ func BenchmarkCircularBuffer(b *testing.B) {
 				var wg sync.WaitGroup
 				for r := 0; r < routines; r++ {
 					wg.Add(1)
+					count.NewGo()
 					go func() {
 						for i := 0; i < perRoutine; i++ {
 							cb.Push(&x)

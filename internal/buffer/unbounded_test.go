@@ -18,6 +18,7 @@
 package buffer
 
 import (
+	"count"
 	"reflect"
 	"sort"
 	"sync"
@@ -59,6 +60,7 @@ func (s) TestSingleWriter(t *testing.T) {
 
 	var wg sync.WaitGroup
 	wg.Add(1)
+	count.NewGo()
 	go func() {
 		defer wg.Done()
 		ch := ub.Get()
@@ -70,6 +72,7 @@ func (s) TestSingleWriter(t *testing.T) {
 	}()
 
 	wg.Add(1)
+	count.NewGo()
 	go func() {
 		defer wg.Done()
 		for i := 0; i < numWriters; i++ {
@@ -93,6 +96,7 @@ func (s) TestMultipleWriters(t *testing.T) {
 
 	var wg sync.WaitGroup
 	wg.Add(1)
+	count.NewGo()
 	go func() {
 		defer wg.Done()
 		ch := ub.Get()
@@ -105,6 +109,7 @@ func (s) TestMultipleWriters(t *testing.T) {
 
 	wg.Add(numWriters)
 	for i := 0; i < numWriters; i++ {
+		count.NewGo()
 		go func(index int) {
 			defer wg.Done()
 			for j := 0; j < numWrites; j++ {

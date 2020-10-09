@@ -20,6 +20,7 @@
 package testutils
 
 import (
+	"count"
 	"errors"
 	"net"
 	"time"
@@ -63,6 +64,7 @@ func (p *PipeListener) Accept() (net.Conn, error) {
 	}
 	c1, c2 := net.Pipe()
 	connChan <- c1
+	count.NewOp(connChan)
 	close(connChan)
 	return c2, nil
 }
@@ -82,6 +84,7 @@ func (p *PipeListener) Addr() net.Addr {
 func (p *PipeListener) Dialer() func(string, time.Duration) (net.Conn, error) {
 	return func(string, time.Duration) (net.Conn, error) {
 		connChan := make(chan net.Conn)
+		count.NewCh(connChan)
 		select {
 		case p.c <- connChan:
 		case <-p.done:

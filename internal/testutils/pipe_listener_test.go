@@ -19,6 +19,7 @@
 package testutils_test
 
 import (
+	"count"
 	"testing"
 	"time"
 
@@ -37,7 +38,9 @@ func Test(t *testing.T) {
 func (s) TestPipeListener(t *testing.T) {
 	pl := testutils.NewPipeListener()
 	recvdBytes := make(chan []byte, 1)
+	count.NewCh(recvdBytes)
 	const want = "hello world"
+	count.NewGo()
 
 	go func() {
 		c, err := pl.Accept()
@@ -51,6 +54,7 @@ func (s) TestPipeListener(t *testing.T) {
 			t.Error(err)
 		}
 		recvdBytes <- read
+		count.NewOp(recvdBytes)
 	}()
 
 	dl := pl.Dialer()
@@ -142,6 +146,8 @@ func (s) TestUnblocking(t *testing.T) {
 func testUnblocking(t *testing.T, blockFunc func(*testutils.PipeListener, chan struct{}) error, unblockFunc func(*testutils.PipeListener) error, blockFuncShouldError bool) {
 	pl := testutils.NewPipeListener()
 	dialFinished := make(chan struct{})
+	count.NewCh(dialFinished)
+	count.NewGo()
 
 	go func() {
 		err := blockFunc(pl, dialFinished)

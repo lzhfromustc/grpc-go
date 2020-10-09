@@ -18,6 +18,7 @@
 package client
 
 import (
+	"count"
 	"fmt"
 	"strconv"
 	"testing"
@@ -56,6 +57,7 @@ func sendXDSRespWithVersion(ch chan<- *fakeserver.Response, respWithoutVersion *
 	nonce = strconv.Itoa(int(time.Now().UnixNano()))
 	respToSend.Nonce = nonce
 	ch <- &fakeserver.Response{Resp: respToSend}
+	count.NewOp(ch)
 	return
 }
 

@@ -24,6 +24,7 @@ package transport
 
 import (
 	"context"
+	"count"
 	"io"
 	"net"
 	"testing"
@@ -63,6 +64,7 @@ func (s) TestMaxConnectionIdle(t *testing.T) {
 	case <-client.Error():
 		if !timeout.Stop() {
 			<-timeout.C
+			count.NewOp(timeout.C)
 		}
 		if reason := client.GetGoAwayReason(); reason != GoAwayNoReason {
 			t.Fatalf("GoAwayReason is %v, want %v", reason, GoAwayNoReason)
@@ -99,6 +101,7 @@ func (s) TestMaxConnectionIdleBusyClient(t *testing.T) {
 	case <-client.GoAway():
 		if !timeout.Stop() {
 			<-timeout.C
+			count.NewOp(timeout.C)
 		}
 		t.Fatalf("A non-idle client received a GoAway.")
 	case <-timeout.C:
@@ -133,6 +136,7 @@ func (s) TestMaxConnectionAge(t *testing.T) {
 	case <-client.Error():
 		if !timeout.Stop() {
 			<-timeout.C
+			count.NewOp(timeout.C)
 		}
 		if reason := client.GetGoAwayReason(); reason != GoAwayNoReason {
 			t.Fatalf("GoAwayReason is %v, want %v", reason, GoAwayNoReason)
@@ -185,11 +189,14 @@ func (s) TestKeepaliveServerClosesUnresponsiveClient(t *testing.T) {
 	// We read from the net.Conn till we get an error, which is expected when
 	// the server closes the connection as part of the keepalive logic.
 	errCh := make(chan error)
+	count.NewCh(errCh)
+	count.NewGo()
 	go func() {
 		b := make([]byte, 24)
 		for {
 			if _, err = conn.Read(b); err != nil {
 				errCh <- err
+				count.NewOp(errCh)
 				return
 			}
 		}
@@ -241,6 +248,7 @@ func (s) TestKeepaliveServerWithResponsiveClient(t *testing.T) {
 // logic is running even without any active streams.
 func (s) TestKeepaliveClientClosesUnresponsiveServer(t *testing.T) {
 	connCh := make(chan net.Conn, 1)
+	count.NewCh(connCh)
 	client, cancel := setUpWithNoPingServer(t, ConnectOptions{KeepaliveParams: keepalive.ClientParameters{
 		Time:                1 * time.Second,
 		Timeout:             1 * time.Second,
@@ -271,6 +279,7 @@ func (s) TestKeepaliveClientClosesUnresponsiveServer(t *testing.T) {
 // active streams, and therefore the transport stays open.
 func (s) TestKeepaliveClientOpenWithUnresponsiveServer(t *testing.T) {
 	connCh := make(chan net.Conn, 1)
+	count.NewCh(connCh)
 	client, cancel := setUpWithNoPingServer(t, ConnectOptions{KeepaliveParams: keepalive.ClientParameters{
 		Time:    1 * time.Second,
 		Timeout: 1 * time.Second,
@@ -298,6 +307,7 @@ func (s) TestKeepaliveClientOpenWithUnresponsiveServer(t *testing.T) {
 // transport even when there is an active stream.
 func (s) TestKeepaliveClientClosesWithActiveStreams(t *testing.T) {
 	connCh := make(chan net.Conn, 1)
+	count.NewCh(connCh)
 	client, cancel := setUpWithNoPingServer(t, ConnectOptions{KeepaliveParams: keepalive.ClientParameters{
 		Time:    1 * time.Second,
 		Timeout: 1 * time.Second,
@@ -383,6 +393,7 @@ func (s) TestKeepaliveClientFrequency(t *testing.T) {
 	case <-client.Error():
 		if !timeout.Stop() {
 			<-timeout.C
+			count.NewOp(timeout.C)
 		}
 		if reason := client.GetGoAwayReason(); reason != GoAwayTooManyPings {
 			t.Fatalf("GoAwayReason is %v, want %v", reason, GoAwayTooManyPings)
@@ -426,6 +437,7 @@ func (s) TestKeepaliveServerEnforcementWithAbusiveClientNoRPC(t *testing.T) {
 	case <-client.Error():
 		if !timeout.Stop() {
 			<-timeout.C
+			count.NewOp(timeout.C)
 		}
 		if reason := client.GetGoAwayReason(); reason != GoAwayTooManyPings {
 			t.Fatalf("GoAwayReason is %v, want %v", reason, GoAwayTooManyPings)
@@ -472,6 +484,7 @@ func (s) TestKeepaliveServerEnforcementWithAbusiveClientWithRPC(t *testing.T) {
 	case <-client.Error():
 		if !timeout.Stop() {
 			<-timeout.C
+			count.NewOp(timeout.C)
 		}
 		if reason := client.GetGoAwayReason(); reason != GoAwayTooManyPings {
 			t.Fatalf("GoAwayReason is %v, want %v", reason, GoAwayTooManyPings)

@@ -18,6 +18,7 @@
 package cdsbalancer
 
 import (
+	"count"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -77,6 +78,7 @@ func (cdsBB) Build(cc balancer.ClientConn, opts balancer.BuildOptions) balancer.
 	}
 	b.logger = grpclog.NewPrefixLogger(loggingPrefix(b))
 	b.logger.Infof("Created")
+	count.NewGo()
 	go b.run()
 	return b
 }

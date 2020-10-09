@@ -18,6 +18,7 @@
 package cache
 
 import (
+	"count"
 	"strconv"
 	"sync"
 	"testing"
@@ -53,6 +54,7 @@ func (s) TestCacheExpire(t *testing.T) {
 	c := NewTimeoutCache(testCacheTimeout)
 
 	callbackChan := make(chan struct{})
+	count.NewCh(callbackChan)
 	c.Add(k, v, func() { close(callbackChan) })
 
 	if gotV, ok := c.getForTesting(k); !ok || gotV.item != v {
@@ -78,6 +80,7 @@ func (s) TestCacheRemove(t *testing.T) {
 	c := NewTimeoutCache(testCacheTimeout)
 
 	callbackChan := make(chan struct{})
+	count.NewCh(callbackChan)
 	c.Add(k, v, func() { close(callbackChan) })
 
 	if got, ok := c.getForTesting(k); !ok || got.item != v {
@@ -113,16 +116,21 @@ func (s) TestCacheClearWithoutCallback(t *testing.T) {
 	c := NewTimeoutCache(testCacheTimeout)
 
 	done := make(chan struct{})
+	count.NewCh(done)
 	defer close(done)
 	callbackChan := make(chan struct{}, itemCount)
+	count.NewCh(callbackChan)
 
 	for i, v := range values {
 		callbackChanTemp := make(chan struct{})
+		count.NewCh(callbackChanTemp)
 		c.Add(i, v, func() { close(callbackChanTemp) })
+		count.NewGo()
 		go func() {
 			select {
 			case <-callbackChanTemp:
 				callbackChan <- struct{}{}
+				count.NewOp(callbackChan)
 			case <-done:
 			}
 		}()
@@ -161,13 +169,16 @@ func (s) TestCacheClearWithCallback(t *testing.T) {
 	c := NewTimeoutCache(time.Hour)
 
 	testDone := make(chan struct{})
+	count.NewCh(testDone)
 	defer close(testDone)
 
 	var wg sync.WaitGroup
 	wg.Add(itemCount)
 	for i, v := range values {
 		callbackChanTemp := make(chan struct{})
+		count.NewCh(callbackChanTemp)
 		c.Add(i, v, func() { close(callbackChanTemp) })
+		count.NewGo()
 		go func() {
 			defer wg.Done()
 			select {
@@ -178,6 +189,8 @@ func (s) TestCacheClearWithCallback(t *testing.T) {
 	}
 
 	allGoroutineDone := make(chan struct{}, itemCount)
+	count.NewCh(allGoroutineDone)
+	count.NewGo()
 	go func() {
 		wg.Wait()
 		close(allGoroutineDone)
@@ -212,6 +225,8 @@ func (s) TestCacheRetrieveTimeoutRace(t *testing.T) {
 	c := NewTimeoutCache(time.Nanosecond)
 
 	done := make(chan struct{})
+	count.NewCh(done)
+	count.NewGo()
 	go func() {
 		for i := 0; i < 1000; i++ {
 			// Add starts a timer with 1 ns timeout, then remove will race

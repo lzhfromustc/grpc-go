@@ -117,7 +117,11 @@ type fakeListener struct {
 }
 
 func (fl *fakeListener) Accept() (net.Conn, error) {
-	cne := <-fl.acceptCh
+	cne, ok := <-fl.acceptCh
+	if !ok {
+		nonTempErr := errors.New("a non-temporary error")
+		return nil, nonTempErr
+	}
 	return cne.conn, cne.err
 }
 
@@ -262,6 +266,7 @@ func (s) TestListenerWrapper_Accept(t *testing.T) {
 		}}, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTestTimeout)
 	defer cancel()
+	defer close(lis.acceptCh)
 	select {
 	case <-ctx.Done():
 		t.Fatalf("timeout waiting for the ready channel to be written to after receipt of a good Listener update")

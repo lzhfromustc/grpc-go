@@ -608,7 +608,7 @@ func (s) TestFaultInjection_MaxActiveFaults(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	streams := make(chan testpb.TestService_FullDuplexCallClient)
+	streams := make(chan testpb.TestService_FullDuplexCallClient, 5) // startStream() is called 5 times
 	startStream := func() {
 		str, err := client.FullDuplexCall(ctx)
 		if err != nil {
